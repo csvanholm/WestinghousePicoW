@@ -1,6 +1,41 @@
 # WestinghousePicoW
 
-RP2040 Pico W firmware project with SMTP-related networking updates and SDK override support.
+This controller was designed using a Pico pico-w or pico2-w (rp2040 or rp2350) using RTOS with just a few extra external components to 
+start, stop and detect power failures and engine run status of the Westinghouse WGen9500DF generator via the built-in smart switch 
+port from a transfer-switch relay contact that will close when utility power fails and open when power is present.
+The schematic can be found in the doc/hardware folder
+
+The generator is normally started manually using either the start push button or the remote key fob, however it cannot be hooked 
+up directly to a transfer-switch relay since the generator needs a pulse of a specific length to start and longer pulse to stop. 
+
+The controller was designed with the following features.
+
+1) After powering up it will wait for the generator controller to become active before 
+   sending a start pulse, this is necessary because the generator controller does not
+   accept commands right after power-up.
+
+2) The Controller will try to start the generator up to 3 times if it fails after that the       controller will
+   "lockup" and blink all LEDs this is done to prevent draining the battery with infinite   restart attempts. 
+   if the generator runs out of gas or fails for some other mechanical reason (such as forgetting to open the gas spigot) 
+   (Lockup is reset by turning the power off and on again)
+
+3) When power returns the controller will run the generator in "cool down" mode for 40 seconds before stopping it,
+   if power fails during cool-down, it will just keep running and exit cool-down mode.
+
+4) The generator controller supports a weekly exerciser function that is enabled by shorting 
+   GPIO5 to GND If enabled it will run the generator for 5 minutes every 7 days. (since last   run)
+
+5) Email notification using your Wi-Fi, the controller will queue up notifications in case of network failure and send them when your network comes online again.
+
+6) The controller has a web-based setup of your network credentials and email server info.
+
+
+Good Luck!
+
+Carsten Svanholm
+csvanholm@comcast.net
+
+RP2040/RP2350 Pico-W or Pico2-W firmware project with SMTP-related networking updates and SDK override support.
 
 ## Repository Layout
 
