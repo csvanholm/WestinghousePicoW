@@ -1,0 +1,62 @@
+# -----------------------------
+# Build outputs and caches
+# -----------------------------
+build/
+build-rp2350/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Ninja and linker outputs
+*.ninja
+*.o
+*.obj
+*.a
+*.elf
+*.map
+*.bin
+*.hex
+*.uf2
+*.dis
+*.d
+*.su
+
+# -----------------------------
+# Generated documentation
+# -----------------------------
+docs/doxygen/html/
+docs/doxygen/xml/
+
+# -----------------------------
+# Local SDK override backups
+# -----------------------------
+sdk-overrides/.backup/
+
+# -----------------------------
+# Local machine secrets
+# -----------------------------
+CMakeUserConfig.cmake
+
+# -----------------------------
+# IDE and OS files
+# -----------------------------
+.vscode/
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/c_cpp_properties.json
+
+.idea/
+*.code-workspace
+
+Thumbs.db
+.DS_Store
+
+# -----------------------------
+# Keep key root files tracked
+# -----------------------------
+!CMakeLists.txt
+!pico_sdk_import.cmake
