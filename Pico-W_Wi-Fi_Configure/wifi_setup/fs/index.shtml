@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <title>Pico-W Configure Wi-Fi</title>
+
+    <style>
+    html {
+        height: -webkit-fill-available;}
+
+        body{
+            width: 100vw;
+            margin: 20 20 20 20;
+            font-size: 40px;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        table, td, th {
+            font-size: 40px;
+        }
+        input {
+            font-size: 40px;
+        }
+		.error-banner {
+			color: #8b0000;
+			background-color: #ffe4e1;
+			border: 2px solid #d2691e;
+			padding: 12px;
+			margin: 16px 0;
+		}
+		.field-error {
+			color: #8b0000;
+			font-size: 28px;
+			padding-top: 4px;
+		}
+        </style>
+    </head>
+
+    <body>
+	<h1>Pico-W Wi-Fi Setup</h1>
+	<div>
+	Configure access to your wireless network on this page.<BR>
+	If your network supports DHCP and you do not want to assign a fixed IP address, leave the "IP address", "Netmask" and "Default Gateway" fields empty.<br><br>
+
+	Click on "Setup" to save. The Pico-W restarts and connects to your wireless network.<br>
+	</div>
+	<div class="error-banner" <!--#ERRSTYL-->><!--#ERRMSG--></div>
+	<br>
+	<form method="get" action="/setup.cgi">
+		<table>
+		<tr><td  colspan="8"><b>Wi-Fi</b></td></tr>
+		<tr>
+			<td><label for="ssid">SSID:</label></td>
+			<td colspan="7"><input type="text" id="ssid" name="ssid" maxlength="32" <!--#SSID-->></td>
+		</tr>
+		<tr>
+			<td><label for="passwd">Password:</label></td>
+			<td colspan="7"><input type="password" id="passwd" name="passwd" maxlength="63" <!--#PASSWD-->></td>
+            </tr>
+		<tr><td></td><td colspan="7" class="field-error"><!--#WIFIMSG--></td></tr>
+
+		<tr><td  colspan="8"><br><b>SMTP / Mail</b></td></tr>
+		<tr>
+			<td><label for="smtp_server">SMTP Server:</label></td>
+			<td colspan="7"><input type="text" id="smtp_server" name="smtp_server" maxlength="63" <!--#SMTPSRV-->></td>
+		</tr>
+		<tr>
+			<td><label for="smtp_port">SMTP Port:</label></td>
+			<td colspan="7"><input type="number" id="smtp_port" name="smtp_port" min="1" max="65535" <!--#SMTPPRT-->></td>
+		</tr>
+		<tr>
+			<td><label for="sender_email">Sender Email:</label></td>
+			<td colspan="7"><input type="email" id="sender_email" name="sender_email" maxlength="63" <!--#SENDEML-->></td>
+		</tr>
+		<tr>
+			<td><label for="sender_password">Sender Password:</label></td>
+			<td colspan="7"><input type="password" id="sender_password" name="sender_password" maxlength="63" <!--#SENDPWD-->></td>
+		</tr>
+		<tr>
+			<td><label for="recipient_email">Recipient Email:</label></td>
+			<td colspan="7"><input type="email" id="recipient_email" name="recipient_email" maxlength="63" <!--#RCPTEML-->></td>
+		</tr>
+		<tr <!--#TOKNROW-->>
+			<td><label for="setup_token">Setup Token:</label></td>
+			<td colspan="7"><input type="password" id="setup_token" name="setup_token" maxlength="31" <!--#TOKN-->></td>
+		</tr>
+		<tr><td></td><td colspan="7" class="field-error"><!--#MAILMSG--></td></tr>
+		<tr <!--#TOKNROW-->><td></td><td colspan="7" class="field-error"><!--#TOKNMSG--></td></tr>
+
+		<tr><td  colspan="8"><br><b>LAN</b></td></tr>
+		<tr>
+			<td><label>IP-Address:</label></td>
+			<td><input type="input" name="B0" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B0-->></td>
+			<td align ="center">.</td>
+			<td><input type="input" name="B1" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B1-->></td>
+			<td>.</td>
+			<td><input type="input" name="B2" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B2-->></td>
+			<td>.</td>
+			<td><input type="input" name="B3" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B3-->></td>
+		</tr>
+		<tr>
+			<td><label>Netmask:</label></td>
+			<td><input type="input" name="B4" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B4-->></td>
+			<td>.</td>
+			<td><input type="input" name="B5" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B5-->></td>
+			<td>.</td>
+			<td><input type="input" name="B6" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B6-->></td>
+			<td>.</td>
+			<td><input type="input" name="B7" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B7-->></td>
+		</tr>
+		<tr>
+			<td><label>Default Gateway:</label></td>
+			<td><input type="input" name="B8" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B8-->></td>
+			<td>.</td>
+			<td><input type="input" name="B9" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B9-->></td>
+			<td>.</td>
+			<td><input type="input" name="B10" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B10-->></td>
+			<td>.</td>
+			<td><input type="input" name="B11" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B11-->></td>
+		</tr>
+		<tr><td></td><td colspan="7" class="field-error"><!--#LANMSG--></td></tr>
+		</table>
+		<br><br>
+		<input value="Setup" type="submit">
+		<br><br>
+		</form>
+	</body>
+</html>
+
