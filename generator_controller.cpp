@@ -91,8 +91,7 @@ void Generator::Led(uint id, bool state)
   if (state)
   {
     gpio_pull_up(id);
-  }
-  else
+  } else
   {
     gpio_disable_pulls(id);
   }
@@ -109,8 +108,7 @@ void Generator::AliveBlink()
   if (m_coolDownCounter > 0)
   {
     Led(LED_BLUE, !gpio_get(LED_BLUE));
-  }
-  else
+  } else
   {
     Led(LED_BLUE, false);
   }
@@ -118,8 +116,7 @@ void Generator::AliveBlink()
   if (m_generatorPowerStable > 0)
   {
     Led(LED_YELLOW, !gpio_get(LED_YELLOW));
-  }
-  else
+  } else
   {
     Led(LED_YELLOW, m_generatorRunning);
   }
@@ -127,8 +124,7 @@ void Generator::AliveBlink()
   if (m_genPowerRequestedStable > 0)
   {
     Led(LED_RED, !gpio_get(LED_RED));
-  }
-  else
+  } else
   {
     Led(LED_RED, m_genPowerRequested);
   }

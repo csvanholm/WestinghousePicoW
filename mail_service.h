@@ -13,11 +13,11 @@
 #include "pico/sync.h"
 
 #ifndef WIFI_SSID
-#define WIFI_SSID ""
+#define WIFI_SSID "your_wifi_ssid"
 #endif
 
 #ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD ""
+#define WIFI_PASSWORD "your_wifi_password"
 #endif
 
 #ifndef SMTP_SERVER
@@ -25,11 +25,11 @@
 #endif
 
 #ifndef SENDER_EMAIL
-#define SENDER_EMAIL ""
+#define SENDER_EMAIL "your_email@example.com"
 #endif
 
 #ifndef SENDER_PASSWORD
-#define SENDER_PASSWORD ""
+#define SENDER_PASSWORD "your_email_password"
 #endif
 
 #ifndef SMTP_PORT
@@ -52,6 +52,7 @@ private:
   {
     Idle,
     WaitingForBusyRetry,
+    WaitingForDns,
     WaitingForCallback
   };
 

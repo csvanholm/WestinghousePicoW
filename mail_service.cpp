@@ -98,6 +98,140 @@ enum class DnsQueryState
 static DnsQueryState g_dnsQueryState = DnsQueryState::Idle;
 static uint32_t g_dnsQueryStartMs = 0;
 static uint32_t g_dnsQueryTimeoutMs = 10000;
+static char g_lastConfiguredSmtpHost[64] = {};
+
+static bool IsDnsServerUsable(const ip_addr_t *dns)
+{
+  if (dns == NULL)
+  {
+    return false;
+  }
+
+  char addrText[IPADDR_STRLEN_MAX] = {0};
+  if (ipaddr_ntoa_r(dns, addrText, sizeof(addrText)) == NULL)
+  {
+    return false;
+  }
+
+  if ((strcmp(addrText, "0.0.0.0") == 0) || (strcmp(addrText, "::") == 0))
+  {
+    return false;
+  }
+
+  return true;
+}
+
+static const char *DnsQueryStateToString(DnsQueryState state)
+{
+  switch (state)
+  {
+    case DnsQueryState::Idle:
+      return "Idle";
+    case DnsQueryState::Waiting:
+      return "Waiting";
+    case DnsQueryState::Completed:
+      return "Completed";
+    case DnsQueryState::Failed:
+      return "Failed";
+    case DnsQueryState::TimedOut:
+      return "TimedOut";
+    default:
+      return "Unknown";
+  }
+}
+
+static void PrintDnsServerDiagnostics(const char *context)
+{
+  cyw43_arch_lwip_begin();
+  const ip_addr_t *dns1 = dns_getserver(0);
+  const ip_addr_t *dns2 = dns_getserver(1);
+  char dns1Text[IPADDR_STRLEN_MAX] = {0};
+  char dns2Text[IPADDR_STRLEN_MAX] = {0};
+  ipaddr_ntoa_r(dns1, dns1Text, sizeof(dns1Text));
+  ipaddr_ntoa_r(dns2, dns2Text, sizeof(dns2Text));
+  printf("[SMTP] %s host='%s' dns1=%s dns2=%s state=%s\n",
+         context != NULL ? context : "DNS diagnostics",
+         g_lastConfiguredSmtpHost[0] != '\0' ? g_lastConfiguredSmtpHost : "<unset>",
+         dns1Text,
+         dns2Text,
+         DnsQueryStateToString(g_dnsQueryState));
+  cyw43_arch_lwip_end();
+}
+
+static void EnsureDnsServersConfigured(const char *reason)
+{
+  cyw43_arch_lwip_begin();
+  const ip_addr_t *dns1 = dns_getserver(0);
+  const ip_addr_t *dns2 = dns_getserver(1);
+  const bool dns1Unset = !IsDnsServerUsable(dns1);
+  const bool dns2Unset = !IsDnsServerUsable(dns2);
+
+  char dns1Text[IPADDR_STRLEN_MAX] = {0};
+  char dns2Text[IPADDR_STRLEN_MAX] = {0};
+  ipaddr_ntoa_r(dns1, dns1Text, sizeof(dns1Text));
+  ipaddr_ntoa_r(dns2, dns2Text, sizeof(dns2Text));
+
+  if (dns1Unset && dns2Unset)
+  {
+    printf("[SMTP] DNS fallback (%s): dns1=%s dns2=%s. Applying 8.8.8.8/1.1.1.1\n",
+           (reason != NULL) ? reason : "unspecified",
+           dns1Text,
+           dns2Text);
+
+    ip_addr_t publicDns1;
+    ip_addr_t publicDns2;
+    IP4_ADDR(&publicDns1, 8, 8, 8, 8);
+    IP4_ADDR(&publicDns2, 1, 1, 1, 1);
+    dns_setserver(0, &publicDns1);
+    dns_setserver(1, &publicDns2);
+    dns_init();
+
+    dns1 = dns_getserver(0);
+    dns2 = dns_getserver(1);
+        ipaddr_ntoa_r(dns1, dns1Text, sizeof(dns1Text));
+        ipaddr_ntoa_r(dns2, dns2Text, sizeof(dns2Text));
+    printf("[SMTP] DNS fallback applied: dns1=%s dns2=%s\n",
+          dns1Text,
+          dns2Text);
+  } else 
+  if (dns1Unset || dns2Unset)
+  {
+    printf("[SMTP] Single DHCP DNS server detected (%s): dns1=%s dns2=%s. Keeping DHCP DNS.\n",
+           (reason != NULL) ? reason : "unspecified",
+           dns1Text,
+           dns2Text);
+  }
+
+  cyw43_arch_lwip_end();
+}
+
+static bool WaitForDhcpDetails(uint32_t timeoutMs)
+{
+  const uint32_t startMs = to_ms_since_boot(get_absolute_time());
+  while ((to_ms_since_boot(get_absolute_time()) - startMs) < timeoutMs)
+  {
+    cyw43_arch_poll();
+    cyw43_arch_lwip_begin();
+    const ip4_addr_t *gateway = netif_ip4_gw(netif_default);
+    const ip_addr_t *dns1 = dns_getserver(0);
+    const ip_addr_t *dns2 = dns_getserver(1);
+    const bool hasGateway = !ip4_addr_isany(gateway);
+    const bool hasDns = IsDnsServerUsable(dns1) || IsDnsServerUsable(dns2);
+    cyw43_arch_lwip_end();
+
+    if (hasGateway && hasDns)
+    {
+      printf("[DHCP] Gateway/DNS available after %u ms.\n",
+             (unsigned)(to_ms_since_boot(get_absolute_time()) - startMs));
+      return true;
+    }
+
+    MailDelayMs(100);
+  }
+
+  PrintDnsServerDiagnostics("DHCP details wait timeout");
+  return false;
+}
 
 
 /**
@@ -311,6 +445,7 @@ void PicoMail::ConfigureRuntimeSmtp(const char *server,
          (unsigned)m_smtpPort,
          m_senderEmail,
          m_recipientEmail);
+  SafeCopy(g_lastConfiguredSmtpHost, sizeof(g_lastConfiguredSmtpHost), m_smtpServer);
 }
 
 void init_platform_clock()
@@ -664,15 +799,14 @@ static int get_local_time(char *time, size_t timeSize, char *date, size_t dateSi
      return -1;
    }
 
-        snprintf(time, timeSize, "%02d:%02d:%02d",
+    snprintf(time, timeSize, "%02d:%02d:%02d",
                  local_tm.tm_hour,local_tm.tm_min,local_tm.tm_sec);
    
-        snprintf(date, dateSize, "%02d/%02d/%04d",
+    snprintf(date, dateSize, "%02d/%02d/%04d",
                 local_tm.tm_mon + 1,local_tm.tm_mday,local_tm.tm_year + 1900);
   
-        return 0;
-  }
-  else 
+    return 0;
+  } else
   {
    return -1;
   }
@@ -1019,6 +1153,33 @@ int PicoMail::FlushOutbox()
     m_flushState = FlushState::Idle;
   }
 
+  if (m_flushState == FlushState::WaitingForDns)
+  {
+    VerifyDnsAndSend(m_smtpServer);
+    if (g_dnsQueryState == DnsQueryState::Waiting)
+    {
+      return -1;
+    }
+
+    if ((g_dnsQueryState == DnsQueryState::Failed) ||
+        (g_dnsQueryState == DnsQueryState::TimedOut))
+    {
+      IncrementHeadRetryCount();
+      EnsureDnsServersConfigured("DNS preflight wait-state failure");
+      PrintDnsServerDiagnostics("DNS preflight failed");
+      m_flushState = FlushState::WaitingForBusyRetry;
+      m_retryDelayMs = kDnsRetryDelayMs;
+      m_flushStateStartMs = GetNowMs();
+      m_busyRetryCount = 0;
+      printf("[SMTP] DNS preflight did not resolve '%s'. Backing off retry for %u ms.\n",
+             m_smtpServer,
+             (unsigned)m_retryDelayMs);
+      return -1;
+    }
+
+    m_flushState = FlushState::Idle;
+  }
+
   if (m_flushState == FlushState::WaitingForCallback)
   {
     uint8_t sendState = PicoMail::m_emailSent.load();
@@ -1040,6 +1201,7 @@ int PicoMail::FlushOutbox()
       PicoMail::m_emailSent.store(0);
       if ((lastResult == SMTP_RESULT_ERR_HOSTNAME) || (lastErr == ERR_ARG))
       {
+        PrintDnsServerDiagnostics("Callback hostname failure");
         m_flushState = FlushState::WaitingForBusyRetry;
         m_retryDelayMs = kDnsRetryDelayMs;
         m_flushStateStartMs = GetNowMs();
@@ -1078,7 +1240,30 @@ int PicoMail::FlushOutbox()
     return -1;
   }
 
+  VerifyDnsAndSend(m_smtpServer);
+  if (g_dnsQueryState == DnsQueryState::Waiting)
+  {
+    m_flushState = FlushState::WaitingForDns;
+    return -1;
+  }
+  if ((g_dnsQueryState == DnsQueryState::Failed) ||
+      (g_dnsQueryState == DnsQueryState::TimedOut))
+  {
+    IncrementHeadRetryCount();
+    EnsureDnsServersConfigured("dns preflight immediate failure");
+    PrintDnsServerDiagnostics("DNS preflight failed");
+    m_flushState = FlushState::WaitingForBusyRetry;
+    m_retryDelayMs = kDnsRetryDelayMs;
+    m_flushStateStartMs = GetNowMs();
+    m_busyRetryCount = 0;
+    printf("[SMTP] DNS preflight did not resolve '%s'. Backing off retry for %u ms.\n",
+           m_smtpServer,
+           (unsigned)m_retryDelayMs);
+    return -1;
+  }
+
   PicoMail::m_emailSent.store(0);
+  SafeCopy(g_lastConfiguredSmtpHost, sizeof(g_lastConfiguredSmtpHost), m_smtpServer);
   printf("Sending queued email to %s (retry %u, queue depth %u)...\n", email.to, email.retryCount, GetOutboxCount());
 
   cyw43_arch_lwip_begin();
@@ -1156,6 +1341,7 @@ void PicoMail::dns_callback(const char *name, const ip_addr_t *ipaddr, void *arg
   {
     printf("DNS Failed: Could not resolve %s\n", name);
     g_dnsQueryState = DnsQueryState::Failed;
+    PrintDnsServerDiagnostics("DNS callback failure");
   }
   PicoMail::m_isDnsResolved.store(true);
 }
@@ -1712,6 +1898,11 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     }
     MailDelayMs(100); // Check every 100ms
   }
+
+  // Some routers assign IP first and populate DNS/gateway shortly after.
+  // Give DHCP a small additional window before applying fallback DNS servers.
+  WaitForDhcpDetails(15000);
+
   // if DNS verification fails we can set the DNS servers to known public servers like Google's or Cloudflare's, but
   // this should not be necessary and may indicate a deeper issue with the network configuration or the Wi-Fi driver if it is.
   // check_dns_servers(); // <<<--- Uncomment this to see what DNS servers are currently set, which
@@ -1728,6 +1919,11 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     dns_setserver(1, &dns_server2);     // 1 is the secondary DNS
     dns_init();                         // re-initialize DNS to clear cache and apply new servers
     cyw43_arch_lwip_end();
+  } else
+  {
+    // Some DHCP paths occasionally leave DNS servers unset (0.0.0.0).
+    // Apply a fallback pair only when unset to avoid unnecessary overrides.
+    EnsureDnsServersConfigured("post-connect DHCP validation");
   }
 
   printf("Connected to Wi-Fi\n\n");
@@ -1752,7 +1948,7 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     smtp_set_tls_config(m_tlsConfig);
     cyw43_arch_lwip_end();
    } 
-  } else if (m_smtpPort == 587)
+  } else 
   if (m_smtpPort == 587)
   {
    printf("Port 587 (STARTTLS): Not supported by lwIP SMTP client.\n");
