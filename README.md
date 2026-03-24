@@ -54,8 +54,9 @@ RP2040/RP2350 Pico-W or Pico2-W firmware project with SMTP-related networking up
 
 Wi-Fi and SMTP credentials are configured at runtime through the Pico W setup portal.
 
-1. Boot into setup mode (hold GPIO22 low at boot for minimum of 3 seconds).
-2. Connect to SSID `picow_config`.
+1. Boot into setup mode (short GPIO22 to Ground at boot for minimum of 3 seconds).
+   The onboard LED will blink fast when you are in setup mode.
+2. Connect to SSID `westinghouse_config`.
 3. Browse to `http://192.168.0.1` and save Wi-Fi/SMTP settings.
 
 Credentials are stored in device flash and are no longer configured via CMake.
