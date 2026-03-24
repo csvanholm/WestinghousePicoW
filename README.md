@@ -1,6 +1,6 @@
 # WestinghousePicoW
 
-This controller was designed using a Pico pico-w or pico2-w (rp2040 or rp2350) using RTOS with just a few extra external components to 
+This controller was designed using a pico-w or pico2-w (rp2040 or rp2350) using RTOS with just a few extra external components to 
 start, stop and detect power failures and engine run status of the Westinghouse WGen9500DF generator via the built-in smart switch 
 port from a transfer-switch relay contact that will close when utility power fails and open when power is present.
 The schematic can be found in the doc/hardware folder
