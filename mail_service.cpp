@@ -99,6 +99,87 @@ static DnsQueryState g_dnsQueryState = DnsQueryState::Idle;
 static uint32_t g_dnsQueryStartMs = 0;
 static uint32_t g_dnsQueryTimeoutMs = 10000;
 static char g_lastConfiguredSmtpHost[64] = {};
+static char g_lastConfiguredSender[64] = {};
+
+static bool ends_with_case_insensitive(const char *text, const char *suffix)
+{
+  if ((text == NULL) || (suffix == NULL))
+  {
+    return false;
+  }
+
+  size_t textLen = strlen(text);
+  size_t suffixLen = strlen(suffix);
+  if ((suffixLen == 0) || (suffixLen > textLen))
+  {
+    return false;
+  }
+
+  const char *textTail = text + (textLen - suffixLen);
+  for (size_t i = 0; i < suffixLen; i++)
+  {
+    char a = textTail[i];
+    char b = suffix[i];
+    if ((a >= 'A') && (a <= 'Z'))
+    {
+      a = (char)(a - 'A' + 'a');
+    }
+    if ((b >= 'A') && (b <= 'Z'))
+    {
+      b = (char)(b - 'A' + 'a');
+    }
+    if (a != b)
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool contains_case_insensitive(const char *text, const char *needle)
+{
+  if ((text == NULL) || (needle == NULL) || (needle[0] == '\0'))
+  {
+    return false;
+  }
+
+  size_t textLen = strlen(text);
+  size_t needleLen = strlen(needle);
+  if (needleLen > textLen)
+  {
+    return false;
+  }
+
+  for (size_t i = 0; i <= (textLen - needleLen); i++)
+  {
+    bool match = true;
+    for (size_t j = 0; j < needleLen; j++)
+    {
+      char a = text[i + j];
+      char b = needle[j];
+      if ((a >= 'A') && (a <= 'Z'))
+      {
+        a = (char)(a - 'A' + 'a');
+      }
+      if ((b >= 'A') && (b <= 'Z'))
+      {
+        b = (char)(b - 'A' + 'a');
+      }
+      if (a != b)
+      {
+        match = false;
+        break;
+      }
+    }
+    if (match)
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 static bool IsDnsServerUsable(const ip_addr_t *dns)
 {
@@ -446,6 +527,13 @@ void PicoMail::ConfigureRuntimeSmtp(const char *server,
          m_senderEmail,
          m_recipientEmail);
   SafeCopy(g_lastConfiguredSmtpHost, sizeof(g_lastConfiguredSmtpHost), m_smtpServer);
+  SafeCopy(g_lastConfiguredSender, sizeof(g_lastConfiguredSender), m_senderEmail);
+
+  if (contains_case_insensitive(m_smtpServer, "gmail") &&
+      !ends_with_case_insensitive(m_senderEmail, "@gmail.com"))
+  {
+    printf("[SMTP] Warning: smtp.gmail.com usually requires a @gmail.com sender account.\n");
+  }
 }
 
 void init_platform_clock()
@@ -1196,10 +1284,19 @@ int PicoMail::FlushOutbox()
     if (sendState == 2)
     {
       const uint8_t lastResult = m_lastSmtpResult.load();
+      const uint16_t lastSrvErr = m_lastSmtpSrvErr.load();
       const err_t lastErr = (err_t)m_lastSmtpErr.load();
       IncrementHeadRetryCount();
       PicoMail::m_emailSent.store(0);
-      if ((lastResult == SMTP_RESULT_ERR_HOSTNAME) || (lastErr == ERR_ARG))
+      if ((lastResult == SMTP_RESULT_ERR_SVR_RESP) && (lastSrvErr == 535))
+      {
+        m_flushState = FlushState::WaitingForBusyRetry;
+        m_retryDelayMs = kAuthRetryDelayMs;
+        m_flushStateStartMs = GetNowMs();
+        m_busyRetryCount = 0;
+        printf("[SMTP] Authentication rejected (535). Pausing retries for %u ms.\n",
+               (unsigned)m_retryDelayMs);
+      } else if ((lastResult == SMTP_RESULT_ERR_HOSTNAME) || (lastErr == ERR_ARG))
       {
         PrintDnsServerDiagnostics("Callback hostname failure");
         m_flushState = FlushState::WaitingForBusyRetry;
@@ -1509,6 +1606,13 @@ void PicoMail::mailsent_callback(void *arg, u8_t smtp_result, u16_t srv_err, err
     if (srv_err != 0) 
     {
       printf("SMTP Server Response Code: %d\n", srv_err);
+      if (srv_err == 535)
+      {
+        printf("[SMTP] Auth failed (535). Verify SMTP account/password and app-password requirements.\n");
+        printf("[SMTP] Current host='%s' sender='%s'\n",
+               g_lastConfiguredSmtpHost,
+               g_lastConfiguredSender);
+      }
       /*
       switch (srv_err) 
       {

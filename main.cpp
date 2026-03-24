@@ -190,11 +190,17 @@ static void ensure_runtime_wifi_config(config *wifiConfig)
   apply_runtime_mail_defaults(wifiConfig);
 
   const bool configMissing = (wifiConfig->magic != MAGIC);
+  const bool versionMismatch = (!configMissing && (wifiConfig->version != CONFIG_VERSION));
   const bool setupRequested = forceSetup();
-  if (configMissing || setupRequested)
+  if (configMissing || versionMismatch || setupRequested)
   {
+    if (versionMismatch)
+    {
+      printf("[SETUP] Config schema v%u does not match expected v%u, re-running setup\n",
+             (unsigned)wifiConfig->version, (unsigned)CONFIG_VERSION);
+    }
     printf("[SETUP] Entering AP config mode at 192.168.0.1\n");
-    run_access_point(wifiConfig, false, false);
+    run_access_point(wifiConfig);
     apply_runtime_mail_defaults(wifiConfig);
     flash_write_page((uint8_t *)wifiConfig, sizeof(*wifiConfig), WIFI_CONFIG_PAGE);
     flash_read((uint8_t *)wifiConfig, sizeof(*wifiConfig), WIFI_CONFIG_PAGE);

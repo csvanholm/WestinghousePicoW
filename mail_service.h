@@ -60,6 +60,7 @@ private:
   static constexpr uint8_t kMaxBusyRetries = 3;
   static constexpr uint32_t kBusyRetryDelayMs = 200;
   static constexpr uint32_t kDnsRetryDelayMs = 3000;
+  static constexpr uint32_t kAuthRetryDelayMs = 300000;
 
 public:
   static std::atomic<uint8_t> m_emailSent;

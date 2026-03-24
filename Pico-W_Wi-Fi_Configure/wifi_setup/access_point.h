@@ -13,17 +13,16 @@
 #ifndef ACCESS_POINT_H
 #define ACCESS_POINT_H
 
-#include "lwip/ip4_addr.h"
 #include "flash_program.h"
 
 /*
  * define's you may change to suit your needs...
  */
-#define AP_SSID     "picow_config"
+#define AP_SSID     "westinghouse_config"
 //#define AP_PASSWD "my secret" // define, if you want a password
 #define MAGIC       0xCAFF      // used to check if the flash contains valid data
 #define LEGACY_MAGIC 0xCAFE     // previous config schema magic
-#define CONFIG_VERSION 2
+#define CONFIG_VERSION 3
 #define SETUP_GPIO  22          // pull this GPIO to GND to force the steup mode
 #define SETUP_DELAY 3           // duration for wich SETUP_GPIO must be held low
 
@@ -53,9 +52,6 @@ typedef struct _config {
     uint16_t version;
     char     ssid[SSID_MAX_LEN + 1];
     char     passwd[PASSWD_MAX_LEN + 1];
-    ip4_addr_t ip;
-    ip4_addr_t mask;
-    ip4_addr_t gw;
     char     smtp_server[SMTP_SERVER_MAX_LEN + 1];
     uint16_t smtp_port;
     char     sender_email[EMAIL_MAX_LEN + 1];
@@ -64,11 +60,9 @@ typedef struct _config {
 } config;
 
 extern config *_c;
-extern bool _need_ip;
-extern bool _need_gw;
 extern bool isConfigured;
 
 bool forceSetup();
-void run_access_point(config *config, bool req_static_ip, bool req_def_gateway);
+void run_access_point(config *config);
 
 #endif // ACCESS_POINT_H

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pico-W Configure Wi-Fi</title>
+
+    <style>
+        :root {
+            --bg: #eef2f7;
+            --panel: #ffffff;
+            --ink: #1f2a37;
+            --muted: #4b5563;
+            --line: #d7deea;
+            --accent: #1f5f8b;
+            --accent-soft: #dcecf7;
+            --success-bg: #eaf8ef;
+            --success-line: #9fc9ad;
+            --success-ink: #1d5b33;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+        }
+
+        body {
+            background: radial-gradient(circle at top, #f8fbff 0%, var(--bg) 70%);
+            color: var(--ink);
+            font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+            font-size: 16px;
+            line-height: 1.4;
+            padding: 24px 12px;
+        }
+
+        .page {
+            max-width: 880px;
+            margin: 0 auto;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 0 10px 28px rgba(26, 44, 66, 0.10);
+            padding: 22px 20px;
+        }
+
+        h1 {
+            margin: 0 0 8px 0;
+            font-size: 1.65rem;
+            color: var(--accent);
+            letter-spacing: 0.02em;
+        }
+
+        h2 {
+            margin: 0 0 14px 0;
+            font-size: 1.2rem;
+            color: var(--success-ink);
+        }
+
+        .status {
+            background: var(--success-bg);
+            border: 1px solid var(--success-line);
+            border-radius: 9px;
+            color: var(--success-ink);
+            font-weight: 700;
+            padding: 9px 11px;
+            margin-bottom: 14px;
+        }
+
+        .summary {
+            border: 1px solid var(--line);
+            background: #f9fcff;
+            border-radius: 10px;
+            padding: 12px;
+            margin: 10px 0 14px;
+        }
+
+        .summary-row {
+            display: flex;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #d7e2ef;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            width: 170px;
+            min-width: 170px;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .value {
+            color: var(--ink);
+            font-weight: 700;
+            word-break: break-all;
+        }
+
+        .note {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .actions {
+            margin-top: 14px;
+        }
+
+        .btn {
+            display: inline-block;
+            border: none;
+            border-radius: 9px;
+            background: linear-gradient(180deg, #2b84be 0%, #1f6794 100%);
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 10px 14px;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            filter: brightness(1.03);
+        }
+
+        .footer {
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+    <h1>Pico-W Wi-Fi Setup</h1>
+    <h2>Setup complete</h2>
+    <div class="status">Configuration has been saved successfully.</div>
+
+	<div class="summary">
+        <div class="summary-row">
+            <div class="label">Saved SSID</div>
+            <div class="value"><!--#OKSSID--></div>
+        </div>
+        <div class="summary-row">
+            <div class="label">Saved SMTP Host</div>
+            <div class="value"><!--#OKSMTP--></div>
+        </div>
+        <div class="summary-row">
+            <div class="label">Saved Recipient</div>
+            <div class="value"><!--#OKRCPT--></div>
+        </div>
+    </div>
+
+	<div class="note">
+	The Pico-W will now reconnect to your wireless network using these settings.<br><br>
+	If connection fails, restart while holding the setup button for 3 seconds and verify your entries.
+	</div>
+
+    <div class="actions">
+        <a class="btn" href="/index.shtml">Back to Setup</a>
+    </div>
+    <div class="footer"><!--#FWVER--></div>
+    </div>
+</body>
+</html>
+

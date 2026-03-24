@@ -30,9 +30,6 @@ void print_config(config *c) {
     printf("\tMagic:        %04X\n",  c->magic);
     printf("\tSSID:        \"%s\"\n", c->ssid);
     printf("\tPassword:    \"%s\"\n", c->passwd);
-    printf("\tIP:           %s\n",    ip4addr_ntoa(&(c->ip)));
-    printf("\tNetmask:      %s\n",    ip4addr_ntoa(&(c->mask)));
-    printf("\tDef. Gateway: %s\n",    ip4addr_ntoa(&(c->gw)));
 }
 
 void clear_flash(void)
@@ -64,14 +61,7 @@ void main(void) {
     if(config.magic != MAGIC || forceSetup()){
         printf("\nPico is in config mode!\n");
 
-// Modify according to your requirements.
-        // Static IP and default gateway are optional
-        run_access_point(&config, false, false);
-
-        // Static IP is required, default gateway is optional
-//      run_access_point(&config, true, false);
-        // Static IP and default gateway are required
-//      run_access_point(&config, true, true);
+        run_access_point(&config);
 
         // store the configuration in flash memory
         flash_write_page((uint8_t *)&config, sizeof(config), WIFI_CONFIG_PAGE);
@@ -87,22 +77,7 @@ void main(void) {
 
 /* Typical connection sequence ends here */
     cyw43_arch_enable_sta_mode();
-    if(config.ip.addr != IPADDR_NONE){
-#if LWIP_DHCP == 1
-        dhcp_release_and_stop(netif_default);
-#endif
-        netif_set_addr(netif_default, &(config.ip), &(config.mask), &(config.gw));
-        netif_set_up(netif_default);
-#if LWIP_DHCP == 1
-        dhcp_inform(netif_default);
-#endif
-        printf("Using static IP: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
-    }
-    else{
-        printf("Using DHCP: ");
-    }
-
-    printf("Connecting to WiFi...\n");
+    printf("Connecting to WiFi (DHCP)...\n");
     if (cyw43_arch_wifi_connect_timeout_ms(config.ssid, config.passwd, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
         printf("failed to connect.\n");
         return;

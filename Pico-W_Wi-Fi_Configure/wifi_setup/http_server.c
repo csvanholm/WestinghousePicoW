@@ -15,6 +15,7 @@
 #include "http_server.h"
 #include "pico/cyw43_arch.h"
 #include "access_point.h"
+#include "firmware_version.h"
 
 /*
  * This file contains the code for SSI and CGI handling.
@@ -32,49 +33,29 @@
 const char * __not_in_flash("httpd") ssi_tags[] = {
     "SSID",    // 0
     "PASSWD",  // 1
-    "B0",      // 2
-    "B1",      // 3
-    "B2",      // 4
-    "B3",      // 5
-    "B4",      // 6
-    "B5",      // 7
-    "B6",      // 8
-    "B7",      // 9
-    "B8",      // 10
-    "B9",      // 11
-    "B10",     // 12
-    "B11",     // 13
-    "SMTPSRV", // 14
-    "SMTPPRT", // 15
-    "SENDEML", // 16
-    "SENDPWD", // 17
-    "RCPTEML", // 18
-    "TOKN",    // 19
-    "ERRMSG",  // 20
-    "ERRSTYL", // 21
-    "WIFIMSG", // 22
-    "LANMSG",  // 23
-    "MAILMSG", // 24
-    "TOKNMSG", // 25
-    "TOKNROW", // 26
-    "OKSSID",  // 27
-    "OKSMTP",  // 28
-    "OKRCPT",  // 29
+    "SMTPSRV", // 2
+    "SMTPPRT", // 3
+    "SENDEML", // 4
+    "SENDPWD", // 5
+    "RCPTEML", // 6
+    "TOKN",    // 7
+    "ERRMSG",  // 8
+    "ERRSTYL", // 9
+    "WIFIMSG", // 10
+    "MAILMSG", // 11
+    "TOKNMSG", // 12
+    "TOKNROW", // 13
+    "OKSSID",  // 14
+    "OKSMTP",  // 15
+    "OKRCPT",  // 16
+    "FWVER",   // 17
 };
 
 #define HIGHLIGHT "STYLE=\"background-color: #72A4D2;\""
-static uint8_t  lan[3][4];
-bool _need_ip;
-bool _need_gw;
-
-static bool ip_err = false;
-static bool mask_err = false;
-static bool gw_err = false;
 static bool smtp_err = false;
 static bool token_err = false;
 static char validation_message[256];
 static char wifi_validation_message[96];
-static char lan_validation_message[96];
 static char mail_validation_message[128];
 static char token_validation_message[96];
 
@@ -82,7 +63,6 @@ static void clear_messages(void)
 {
     validation_message[0] = '\0';
     wifi_validation_message[0] = '\0';
-    lan_validation_message[0] = '\0';
     mail_validation_message[0] = '\0';
     token_validation_message[0] = '\0';
 }
@@ -124,6 +104,98 @@ static bool has_at_sign(const char *text)
         return false;
     }
     return strchr(text, '@') != NULL;
+}
+
+static char to_lower_ascii(char c)
+{
+    if ((c >= 'A') && (c <= 'Z')) {
+        return (char)(c - 'A' + 'a');
+    }
+    return c;
+}
+
+static bool contains_case_insensitive(const char *text, const char *needle)
+{
+    size_t text_len;
+    size_t needle_len;
+
+    if ((text == NULL) || (needle == NULL) || (needle[0] == '\0')) {
+        return false;
+    }
+
+    text_len = strlen(text);
+    needle_len = strlen(needle);
+    if (needle_len > text_len) {
+        return false;
+    }
+
+    for (size_t i = 0; i <= (text_len - needle_len); i++) {
+        bool match = true;
+        for (size_t j = 0; j < needle_len; j++) {
+            if (to_lower_ascii(text[i + j]) != to_lower_ascii(needle[j])) {
+                match = false;
+                break;
+            }
+        }
+        if (match) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool ends_with_case_insensitive(const char *text, const char *suffix)
+{
+    size_t text_len;
+    size_t suffix_len;
+
+    if ((text == NULL) || (suffix == NULL) || (suffix[0] == '\0')) {
+        return false;
+    }
+
+    text_len = strlen(text);
+    suffix_len = strlen(suffix);
+    if (suffix_len > text_len) {
+        return false;
+    }
+
+    for (size_t i = 0; i < suffix_len; i++) {
+        if (to_lower_ascii(text[text_len - suffix_len + i]) != to_lower_ascii(suffix[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool smtp_sender_matches_provider(const char *smtp_server, const char *sender_email)
+{
+    if ((smtp_server == NULL) || (sender_email == NULL)) {
+        return false;
+    }
+
+    // If the host suggests a major provider, enforce matching sender domains.
+    if (contains_case_insensitive(smtp_server, "gmail")) {
+        return ends_with_case_insensitive(sender_email, "@gmail.com");
+    }
+
+    if (contains_case_insensitive(smtp_server, "yahoo")) {
+        return ends_with_case_insensitive(sender_email, "@yahoo.com") ||
+               ends_with_case_insensitive(sender_email, "@ymail.com") ||
+               ends_with_case_insensitive(sender_email, "@rocketmail.com");
+    }
+
+    if (contains_case_insensitive(smtp_server, "outlook") ||
+        contains_case_insensitive(smtp_server, "office365") ||
+        contains_case_insensitive(smtp_server, "hotmail")) {
+        return ends_with_case_insensitive(sender_email, "@outlook.com") ||
+               ends_with_case_insensitive(sender_email, "@hotmail.com") ||
+               ends_with_case_insensitive(sender_email, "@live.com") ||
+               ends_with_case_insensitive(sender_email, "@msn.com");
+    }
+
+    return true;
 }
 
 /*
@@ -176,90 +248,36 @@ u16_t __time_critical_func(ssi_handler)(int iIndex, char *pcInsert, int iInsertL
         }
         break;
 
-        case 2: /* "static ip address a */
-        case 3: /* "static ip address b */
-        case 4: /* "static ip address c */
-        case 5: /* "static ip address d */
-            if(_c->ip.addr == IPADDR_NONE){
-                if(_need_ip)
-                    printed = snprintf(pcInsert, iInsertLen, "%s", HIGHLIGHT);
-            }
-            else if(ip_err){
-                printed = snprintf(pcInsert, iInsertLen, "value=\"%d\" %s",
-                ip4_addr_get_byte(&(_c->ip), iIndex - 2), HIGHLIGHT);
-            }
-            else{
-                printed = snprintf(pcInsert, iInsertLen, "value=\"%d\"",
-                ip4_addr_get_byte(&(_c->ip), iIndex - 2));
-            }
-        break;
-
-        case 6: /* "net mask address a */
-        case 7: /* "net mask address b */
-        case 8: /* "net mask address c */
-        case 9: /* "net mask address d */
-            if(_c->mask.addr == IPADDR_NONE){
-                if(_need_ip)
-                    printed = snprintf(pcInsert, iInsertLen, "%s", HIGHLIGHT);
-            }
-            else if(mask_err){
-                printed = snprintf(pcInsert, iInsertLen, "value=\"%d\" %s",
-                                   ip4_addr_get_byte(&(_c->mask), iIndex - 6), HIGHLIGHT);
-            }
-            else{
-                printed = snprintf(pcInsert, iInsertLen, "value=\"%d\"",
-                                   ip4_addr_get_byte(&(_c->mask), iIndex - 6));
-            }
-            break;
-
-        case 10: /* "def gateway address a */
-        case 11: /* "def gateway address b */
-        case 12: /* "def gateway address c */
-        case 13: /* "def gateway address d */
-            if(_c->gw.addr == IPADDR_NONE){
-                if(_need_gw)
-                    printed = snprintf(pcInsert, iInsertLen, "%s", HIGHLIGHT);
-            }
-            else if(gw_err){
-                printed = snprintf(pcInsert, iInsertLen, "value=\"%d\" %s",
-                                   ip4_addr_get_byte(&(_c->gw), iIndex - 10), HIGHLIGHT);
-            }
-            else{
-                printed = snprintf(pcInsert, iInsertLen, "value=\"%d\"",
-                                   ip4_addr_get_byte(&(_c->gw), iIndex - 10));
-            }
-            break;
-
-        case 14: /* smtp server */
+        case 2: /* smtp server */
             encode_value(_c->smtp_server, webStr);
             printed = snprintf(pcInsert, iInsertLen, "value=\"%s\" %s", webStr,
                                (smtp_err && (_c->smtp_server[0] == '\0')) ? HIGHLIGHT : "");
             break;
 
-        case 15: /* smtp port */
+        case 3: /* smtp port */
             printed = snprintf(pcInsert, iInsertLen, "value=\"%u\" %s", (unsigned)_c->smtp_port,
                                smtp_err ? HIGHLIGHT : "");
             break;
 
-        case 16: /* sender email */
+        case 4: /* sender email */
             encode_value(_c->sender_email, webStr);
             printed = snprintf(pcInsert, iInsertLen, "value=\"%s\" %s", webStr,
                                (smtp_err && !has_at_sign(_c->sender_email)) ? HIGHLIGHT : "");
             break;
 
-        case 17: /* sender password */
+        case 5: /* sender password */
             encode_value(_c->sender_password, webStr);
             printed = snprintf(pcInsert, iInsertLen, "value=\"%s\" %s", webStr,
                                (smtp_err && (_c->sender_password[0] == '\0')) ? HIGHLIGHT : "");
             break;
 
-        case 18: /* recipient email */
+        case 6: /* recipient email */
             encode_value(_c->recipient_email, webStr);
             printed = snprintf(pcInsert, iInsertLen, "value=\"%s\" %s", webStr,
                                (smtp_err && !has_at_sign(_c->recipient_email)) ? HIGHLIGHT : "");
             break;
 
-        case 19: /* setup token */
+        case 7: /* setup token */
             if (token_err) {
                 printed = snprintf(pcInsert, iInsertLen, "%s", HIGHLIGHT);
             } else {
@@ -267,32 +285,28 @@ u16_t __time_critical_func(ssi_handler)(int iIndex, char *pcInsert, int iInsertL
             }
             break;
 
-        case 20: /* validation message */
+        case 8: /* validation message */
             printed = snprintf(pcInsert, iInsertLen, "%s", validation_message);
             break;
 
-        case 21: /* error banner visibility */
+        case 9: /* error banner visibility */
             printed = snprintf(pcInsert, iInsertLen, "%s",
                                (validation_message[0] == '\0') ? "style=\"display:none;\"" : "");
             break;
 
-        case 22: /* wifi validation message */
+        case 10: /* wifi validation message */
             printed = snprintf(pcInsert, iInsertLen, "%s", wifi_validation_message);
             break;
 
-        case 23: /* lan validation message */
-            printed = snprintf(pcInsert, iInsertLen, "%s", lan_validation_message);
-            break;
-
-        case 24: /* mail validation message */
+        case 11: /* mail validation message */
             printed = snprintf(pcInsert, iInsertLen, "%s", mail_validation_message);
             break;
 
-        case 25: /* token validation message */
+        case 12: /* token validation message */
             printed = snprintf(pcInsert, iInsertLen, "%s", token_validation_message);
             break;
 
-        case 26: /* token row visibility */
+        case 13: /* token row visibility */
 #ifdef SETUP_PORTAL_TOKEN
             printed = snprintf(pcInsert, iInsertLen, "%s", "");
 #else
@@ -300,19 +314,29 @@ u16_t __time_critical_func(ssi_handler)(int iIndex, char *pcInsert, int iInsertL
 #endif
             break;
 
-        case 27: /* saved SSID for done page */
+        case 14: /* saved SSID for done page */
             encode_value(_c->ssid, webStr);
             printed = snprintf(pcInsert, iInsertLen, "%s", webStr);
             break;
 
-        case 28: /* saved SMTP host for done page */
+        case 15: /* saved SMTP host for done page */
             encode_value(_c->smtp_server, webStr);
             printed = snprintf(pcInsert, iInsertLen, "%s", webStr);
             break;
 
-        case 29: /* saved recipient for done page */
+        case 16: /* saved recipient for done page */
             encode_value(_c->recipient_email, webStr);
             printed = snprintf(pcInsert, iInsertLen, "%s", webStr);
+            break;
+
+        case 17: /* firmware/version footer */
+            printed = snprintf(pcInsert,
+                               iInsertLen,
+                               "FW %s | Config v%u | Build %s %s",
+                               APP_FIRMWARE_VERSION,
+                               (unsigned)CONFIG_VERSION,
+                               __DATE__,
+                               __TIME__);
             break;
     }
     LWIP_ASSERT("sane length", printed <= 0xFFFF);
@@ -371,10 +395,8 @@ cgi_init(void)
 const char *
 cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
-    memset(lan, 0, sizeof(lan));
-    ip_err   = false;
-    mask_err = false;
-    gw_err   = false;
+    bool provider_mismatch = false;
+
     smtp_err = false;
     token_err = false;
     clear_messages();
@@ -419,65 +441,7 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
             token_match = (strcmp(pcValue[i], SETUP_PORTAL_TOKEN) == 0);
     #endif
         }
-        else if(pcParam[i][0] == 'B'){
-            uint8_t index = atoi(&(pcParam[i][1]));
-            int val = atoi(pcValue[i]);
-            switch(index){
-                case 0:
-                case 1:
-                case 2:
-                case 3: // IP address
-                    if(pcValue[i][0] == '\0' && _need_ip)
-                        ip_err = true;
-                    else if(val < 0 || val > 255)
-                        ip_err = true;
-                    else
-                        lan[index/4][index%4] = val;
-                    break;
-
-                case 4:
-                case 5:
-                case 6:
-                case 7: // net mask
-                    if(pcValue[i][0] == '\0' && _need_ip)
-                        mask_err = true;
-                    else if(val < 0 || val > 255)
-                        mask_err = true;
-                    else
-                        lan[index/4][index%4] = val;
-                    break;
-
-                case 8:
-                case 9:
-                case 10:
-                case 11: // default gateway
-                    if(pcValue[i][0] == '\0' && _need_gw)
-                        gw_err = true;
-                    else if(val < 0 || val > 255)
-                        gw_err = true;
-                    else
-                        lan[index/4][index%4] = val;
-                    break;
-
-            }
-        }
     }
-    IP4_ADDR(&(_c->ip),   lan[0][0], lan[0][1], lan[0][2], lan[0][3]);
-    if(!_c->ip.addr)
-        _c->ip.addr = IPADDR_NONE;
-
-    IP4_ADDR(&(_c->mask), lan[1][0], lan[1][1], lan[1][2], lan[1][3]);
-    if(!_c->mask.addr)
-        _c->mask.addr = IPADDR_NONE;
-
-    IP4_ADDR(&(_c->gw),   lan[2][0], lan[2][1], lan[2][2], lan[2][3]);
-    if(!_c->gw.addr)
-        _c->gw.addr = IPADDR_NONE;
-
-
-    DEBUG_printf("IP %s\n", ip4addr_ntoa(&(_c->ip)));
-    DEBUG_printf("NM %s\n", ip4addr_ntoa(&(_c->mask)));
-    DEBUG_printf("GW %s\n", ip4addr_ntoa(&(_c->gw)));
     if ((_c->smtp_server[0] == '\0') ||
         (_c->smtp_port == 0) ||
         (_c->sender_email[0] == '\0') ||
@@ -488,23 +452,29 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
         smtp_err = true;
     }
 
+    if (!smtp_err && !smtp_sender_matches_provider(_c->smtp_server, _c->sender_email)) {
+        smtp_err = true;
+        provider_mismatch = true;
+    }
+
     if ((_c->ssid[0] == '\0') || (_c->passwd[0] == '\0')) {
         append_message(wifi_validation_message,
                        sizeof(wifi_validation_message),
                        "Wi-Fi SSID and password are required.");
     }
 
-    if (ip_err || mask_err || gw_err) {
-        append_message(lan_validation_message,
-                       sizeof(lan_validation_message),
-                       "Check IP, netmask, and gateway octets.");
-        append_validation_message("LAN settings contain missing or invalid octets.");
-    }
     if (smtp_err) {
         append_message(mail_validation_message,
                        sizeof(mail_validation_message),
                        "Enter SMTP host, port, sender email, sender password, and recipient email.");
         append_validation_message("SMTP settings are incomplete or email addresses are invalid.");
+        if (provider_mismatch) {
+            append_message(mail_validation_message,
+                           sizeof(mail_validation_message),
+                           "Sender email must match the SMTP provider domain (e.g., Gmail host with @gmail.com sender)."
+                           );
+            append_validation_message("SMTP host and sender account appear to belong to different providers.");
+        }
     }
 
 #ifdef SETUP_PORTAL_TOKEN
@@ -519,16 +489,16 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
     }
 #endif
 
-    if(!(ip_err || mask_err || gw_err || smtp_err || token_err))
+    if(!(smtp_err || token_err))
         DEBUG_printf("Configure OK\n");
     else
         DEBUG_printf("Configure ERROR\n");
 
-    if(!(ip_err || mask_err || gw_err || smtp_err || token_err)){
+    if(!(smtp_err || token_err)){
         _c->magic = MAGIC;
         _c->version = CONFIG_VERSION;
         isConfigured = true;
-        return "/done.html";
+        return "/done.shtml";
     }
     else{
         return "/index.shtml";

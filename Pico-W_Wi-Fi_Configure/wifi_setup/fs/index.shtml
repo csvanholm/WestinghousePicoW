@@ -3,65 +3,204 @@
     <head>
     <title>Pico-W Configure Wi-Fi</title>
 
-    <style>
-    html {
-        height: -webkit-fill-available;}
+	<style>
+		:root {
+			--bg: #eef2f7;
+			--panel: #ffffff;
+			--ink: #1f2a37;
+			--muted: #4b5563;
+			--line: #d7deea;
+			--accent: #1f5f8b;
+			--accent-soft: #dcecf7;
+			--danger-ink: #7d1f2a;
+			--danger-bg: #fdecef;
+			--danger-line: #e8a3ae;
+		}
 
-        body{
-            width: 100vw;
-            margin: 20 20 20 20;
-            font-size: 40px;
-        }
+		html, body {
+			margin: 0;
+			padding: 0;
+			min-height: 100%;
+		}
 
-        table {
-            border-collapse: collapse;
-        }
+		body {
+			background: radial-gradient(circle at top, #f8fbff 0%, var(--bg) 70%);
+			color: var(--ink);
+			font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+			font-size: 16px;
+			line-height: 1.4;
+			padding: 24px 12px;
+		}
 
-        table, td, th {
-            font-size: 40px;
-        }
-        input {
-            font-size: 40px;
-        }
+		.page {
+			max-width: 880px;
+			margin: 0 auto;
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			box-shadow: 0 10px 28px rgba(26, 44, 66, 0.10);
+			padding: 22px 20px;
+		}
+
+		h1 {
+			margin: 0 0 12px 0;
+			font-size: 1.65rem;
+			color: var(--accent);
+			letter-spacing: 0.02em;
+		}
+
+		.intro {
+			margin-bottom: 14px;
+			color: var(--muted);
+			font-size: 0.98rem;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+		}
+
+		td {
+			padding: 6px 4px;
+			vertical-align: middle;
+			font-size: 0.97rem;
+		}
+
+		.section-title td {
+			font-weight: 700;
+			color: var(--accent);
+			padding-top: 16px;
+			border-top: 1px solid var(--line);
+		}
+
+		.section-title.first td {
+			border-top: none;
+			padding-top: 2px;
+		}
+
+		input[type="text"],
+		input[type="password"],
+		input[type="email"],
+		input[type="number"] {
+			width: 100%;
+			box-sizing: border-box;
+			border: 1px solid #bfccdd;
+			border-radius: 8px;
+			padding: 9px 10px;
+			font-size: 0.98rem;
+			color: var(--ink);
+			background: #fff;
+		}
+
+		input[type="text"]:focus,
+		input[type="password"]:focus,
+		input[type="email"]:focus,
+		input[type="number"]:focus {
+			border-color: #4d8fbc;
+			outline: none;
+			box-shadow: 0 0 0 2px var(--accent-soft);
+		}
+
+		.pwd-wrap {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.eye-btn {
+			min-width: 58px;
+			border: 1px solid #b7c6d9;
+			border-radius: 8px;
+			background: #f4f8fc;
+			color: #334155;
+			cursor: pointer;
+			font-size: 0.82rem;
+			font-weight: 700;
+			padding: 8px 10px;
+		}
+
+		.eye-btn:hover {
+			background: #e7eff7;
+		}
+
 		.error-banner {
-			color: #8b0000;
-			background-color: #ffe4e1;
-			border: 2px solid #d2691e;
-			padding: 12px;
-			margin: 16px 0;
+			color: var(--danger-ink);
+			background-color: var(--danger-bg);
+			border: 1px solid var(--danger-line);
+			border-radius: 8px;
+			padding: 10px 12px;
+			margin: 10px 0 16px;
+			font-size: 0.92rem;
 		}
+
 		.field-error {
-			color: #8b0000;
-			font-size: 28px;
-			padding-top: 4px;
+			color: var(--danger-ink);
+			font-size: 0.86rem;
+			padding-top: 0;
 		}
-        </style>
+
+		.helper-text {
+			color: var(--muted);
+			font-size: 0.85rem;
+			padding-top: 0;
+		}
+
+		.actions {
+			margin-top: 18px;
+		}
+
+		input[type="submit"] {
+			border: none;
+			border-radius: 9px;
+			background: linear-gradient(180deg, #2b84be 0%, #1f6794 100%);
+			color: #fff;
+			font-size: 0.98rem;
+			font-weight: 700;
+			letter-spacing: 0.01em;
+			padding: 10px 18px;
+			cursor: pointer;
+		}
+
+		input[type="submit"]:hover {
+			filter: brightness(1.03);
+		}
+
+		.footer {
+			margin-top: 14px;
+			padding-top: 10px;
+			border-top: 1px solid var(--line);
+			color: var(--muted);
+			font-size: 0.82rem;
+		}
+	</style>
     </head>
 
     <body>
+	<div class="page">
 	<h1>Pico-W Wi-Fi Setup</h1>
-	<div>
-	Configure access to your wireless network on this page.<BR>
-	If your network supports DHCP and you do not want to assign a fixed IP address, leave the "IP address", "Netmask" and "Default Gateway" fields empty.<br><br>
-
-	Click on "Setup" to save. The Pico-W restarts and connects to your wireless network.<br>
+	<div class="intro">
+	Configure wireless and email settings for this device. Press Setup to save and reconnect using the new configuration.
 	</div>
 	<div class="error-banner" <!--#ERRSTYL-->><!--#ERRMSG--></div>
-	<br>
 	<form method="get" action="/setup.cgi">
 		<table>
-		<tr><td  colspan="8"><b>Wi-Fi</b></td></tr>
+		<tr class="section-title first"><td colspan="8">Wi-Fi</td></tr>
 		<tr>
 			<td><label for="ssid">SSID:</label></td>
 			<td colspan="7"><input type="text" id="ssid" name="ssid" maxlength="32" <!--#SSID-->></td>
 		</tr>
 		<tr>
 			<td><label for="passwd">Password:</label></td>
-			<td colspan="7"><input type="password" id="passwd" name="passwd" maxlength="63" <!--#PASSWD-->></td>
-            </tr>
+			<td colspan="7">
+				<div class="pwd-wrap">
+					<input type="password" id="passwd" name="passwd" maxlength="63" <!--#PASSWD-->>
+					<button type="button" class="eye-btn" onclick="togglePwd('passwd',this)" title="Show/hide">Show</button>
+				</div>
+			</td>
+		</tr>
 		<tr><td></td><td colspan="7" class="field-error"><!--#WIFIMSG--></td></tr>
 
-		<tr><td  colspan="8"><br><b>SMTP / Mail</b></td></tr>
+		<tr class="section-title"><td colspan="8">SMTP / Mail</td></tr>
 		<tr>
 			<td><label for="smtp_server">SMTP Server:</label></td>
 			<td colspan="7"><input type="text" id="smtp_server" name="smtp_server" maxlength="63" <!--#SMTPSRV-->></td>
@@ -76,56 +215,42 @@
 		</tr>
 		<tr>
 			<td><label for="sender_password">Sender Password:</label></td>
-			<td colspan="7"><input type="password" id="sender_password" name="sender_password" maxlength="63" <!--#SENDPWD-->></td>
+			<td colspan="7">
+				<div class="pwd-wrap">
+					<input type="password" id="sender_password" name="sender_password" maxlength="63" <!--#SENDPWD-->>
+					<button type="button" class="eye-btn" onclick="togglePwd('sender_password',this)" title="Show/hide">Show</button>
+				</div>
+			</td>
 		</tr>
 		<tr>
 			<td><label for="recipient_email">Recipient Email:</label></td>
 			<td colspan="7"><input type="email" id="recipient_email" name="recipient_email" maxlength="63" <!--#RCPTEML-->></td>
 		</tr>
+		<tr><td></td><td colspan="7" class="helper-text">For Gmail, use smtp.gmail.com with a @gmail.com sender and an app password (not your normal account password).</td></tr>
 		<tr <!--#TOKNROW-->>
 			<td><label for="setup_token">Setup Token:</label></td>
-			<td colspan="7"><input type="password" id="setup_token" name="setup_token" maxlength="31" <!--#TOKN-->></td>
+			<td colspan="7">
+				<div class="pwd-wrap">
+					<input type="password" id="setup_token" name="setup_token" maxlength="31" <!--#TOKN-->>
+					<button type="button" class="eye-btn" onclick="togglePwd('setup_token',this)" title="Show/hide">Show</button>
+				</div>
+			</td>
 		</tr>
 		<tr><td></td><td colspan="7" class="field-error"><!--#MAILMSG--></td></tr>
 		<tr <!--#TOKNROW-->><td></td><td colspan="7" class="field-error"><!--#TOKNMSG--></td></tr>
 
-		<tr><td  colspan="8"><br><b>LAN</b></td></tr>
-		<tr>
-			<td><label>IP-Address:</label></td>
-			<td><input type="input" name="B0" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B0-->></td>
-			<td align ="center">.</td>
-			<td><input type="input" name="B1" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B1-->></td>
-			<td>.</td>
-			<td><input type="input" name="B2" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B2-->></td>
-			<td>.</td>
-			<td><input type="input" name="B3" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B3-->></td>
-		</tr>
-		<tr>
-			<td><label>Netmask:</label></td>
-			<td><input type="input" name="B4" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B4-->></td>
-			<td>.</td>
-			<td><input type="input" name="B5" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B5-->></td>
-			<td>.</td>
-			<td><input type="input" name="B6" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B6-->></td>
-			<td>.</td>
-			<td><input type="input" name="B7" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B7-->></td>
-		</tr>
-		<tr>
-			<td><label>Default Gateway:</label></td>
-			<td><input type="input" name="B8" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B8-->></td>
-			<td>.</td>
-			<td><input type="input" name="B9" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B9-->></td>
-			<td>.</td>
-			<td><input type="input" name="B10" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B10-->></td>
-			<td>.</td>
-			<td><input type="input" name="B11" size="3" pattern="[0-9]{1,3}" title="0 - 255" <!--#B11-->></td>
-		</tr>
-		<tr><td></td><td colspan="7" class="field-error"><!--#LANMSG--></td></tr>
 		</table>
-		<br><br>
-		<input value="Setup" type="submit">
-		<br><br>
+		<div class="actions"><input value="Setup" type="submit"></div>
 		</form>
+		<div class="footer"><!--#FWVER--></div>
+	</div>
 	</body>
+	<script>
+	function togglePwd(id, btn) {
+		var f = document.getElementById(id);
+		if (f.type === 'password') { f.type = 'text'; btn.textContent = 'Hide'; }
+		else { f.type = 'password'; btn.textContent = 'Show'; }
+	}
+	</script>
 </html>
 

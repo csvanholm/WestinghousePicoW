@@ -30,33 +30,24 @@ bool isConfigured = false;
 static void run_http_server();
 
 /*
- * void run_access_point(config *config,
- *                          bool require_static_ip,
- *                          bool require_def_gateway)
+ * void run_access_point(config *config)
  * config:          pointer to configuration data
  *                  at entry:   data found in the flash
  *                  at return:  user entries
- * req_static_ip:   user must provide an IP-adress and a netmask
- * req_def_gateway. user must provide the deafault gateways IP-address
  *
  * Creates an access point and starts a web server that provides a page for
- * configuring the access data and the LAN.
+ * configuring the Wi-Fi and mail settings.
  * After entering the data on this page, the access point is terminated.
  */
 
-void run_access_point(config *config, bool req_static_ip, bool req_def_gateway)
+void run_access_point(config *config)
 {
     _c = config;
-    _need_ip = req_static_ip;
-    _need_gw = req_def_gateway;
 
     if(_c->magic != MAGIC){
         _c->version = CONFIG_VERSION;
         memset(_c->ssid, '\0', SSID_MAX_LEN);
         memset(_c->passwd, '\0', PASSWD_MAX_LEN);
-        _c->ip.addr = IPADDR_NONE;
-        _c->mask.addr = IPADDR_NONE;
-        _c->gw.addr = IPADDR_NONE;
         memset(_c->smtp_server, '\0', SMTP_SERVER_MAX_LEN + 1);
         _c->smtp_port = 465;
         memset(_c->sender_email, '\0', EMAIL_MAX_LEN + 1);
