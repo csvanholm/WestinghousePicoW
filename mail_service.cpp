@@ -1305,7 +1305,8 @@ int PicoMail::FlushOutbox()
         m_busyRetryCount = 0;
         printf("[SMTP] Authentication rejected (535). Pausing retries for %u ms.\n",
                (unsigned)m_retryDelayMs);
-      } else if ((lastResult == SMTP_RESULT_ERR_HOSTNAME) || (lastErr == ERR_ARG))
+      } else 
+      if ((lastResult == SMTP_RESULT_ERR_HOSTNAME) || (lastErr == ERR_ARG))
       {
         PrintDnsServerDiagnostics("Callback hostname failure");
         m_flushState = FlushState::WaitingForBusyRetry;
@@ -1342,7 +1343,6 @@ int PicoMail::FlushOutbox()
       }
       return -1;
     }
-
     return -1;
   }
 
@@ -1399,7 +1399,6 @@ int PicoMail::FlushOutbox()
       m_flushStateStartMs = GetNowMs();
       return -1;
     }
-
     m_busyRetryCount = 0;
   }
 
@@ -1438,7 +1437,7 @@ int PicoMail::FlushOutbox()
  */
 void PicoMail::dns_callback(const char *name, const ip_addr_t *ipaddr, void *arg)
 {
-  (void)arg;
+  (void) arg;  // to supress compiler warning about unused parameter
   if (ipaddr)
   {
     printf("DNS Success: %s resolved to %s\n", name, ipaddr_ntoa(ipaddr));
@@ -1462,7 +1461,6 @@ void PicoMail::VerifyDnsAndSend(const char *hostname)
   {
     return;
   }
-
   // Start a new async query when idle or after a previous terminal state.
   if ((g_dnsQueryState == DnsQueryState::Idle) ||
       (g_dnsQueryState == DnsQueryState::Completed) ||

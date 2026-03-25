@@ -1,9 +1,8 @@
 # WestinghousePicoW
 
 This controller was designed using a pico-w or pico2-w (rp2040 or rp2350) using RTOS with just a few extra external components to 
-start, stop and detect power failures and engine run status of the Westinghouse WGen9500DF generator via the built-in smart switch 
-port from a transfer-switch relay contact that will close when utility power fails and open when power is present.
-The schematic can be found in the doc/hardware folder
+start, stop and detect power failure and engine run status of the Westinghouse WGen9500DF generator but it will work with most westinghouse models via the built-in smart switch port from a transfer-switch relay contact that will close when utility power fails and open when power is present.
+The schematic for this controller can be found in the doc/hardware folder
 
 The generator is normally started manually using either the start push button or the remote key fob, however it cannot be hooked 
 up directly to a transfer-switch relay since the generator needs a pulse of a specific length to start and longer pulse to stop. 
@@ -47,9 +46,12 @@ RP2040/RP2350 Pico-W or Pico2-W firmware project with SMTP-related networking up
 ## Prerequisites
 
 - VS Code with Raspberry Pi Pico extension/toolchain installed
+- import it as a raspberry pico project and select your pico type
 - Pico SDK/toolchain configured in your environment
+- `cmake plugin` is recomended to select build type debug,release compiler ect.
 - `ninja` available via the Pico toolchain path
-
+- `perl` must be installed in order to rebuild the html content
+-  can be downloaded here  https://strawberryperl.com/
 ## Runtime Configuration
 
 Wi-Fi and SMTP credentials are configured at runtime through the Pico W setup portal.

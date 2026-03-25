@@ -449,13 +449,14 @@ int main()
   
   // read config from flash and run AP setup if needed. This ensures we have Wi-Fi credentials before proceeding and also migrates legacy config formats.
   ensure_runtime_wifi_config(&wifiConfig);
-
+/*
   printf("[SETUP] Loaded SMTP config from flash:\nhost='%s'\nport=%u\nsender='%s'\nrecipient='%s'\n",
       wifiConfig.smtp_server,
       (unsigned) wifiConfig.smtp_port,
       wifiConfig.sender_email,
       wifiConfig.recipient_email);
-
+*/
+ 
   picoMail->ConfigureRuntimeSmtp(wifiConfig.smtp_server,
                                  wifiConfig.smtp_port,
                                  wifiConfig.sender_email,
