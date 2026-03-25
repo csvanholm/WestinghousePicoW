@@ -70,6 +70,33 @@ else()
     message(STATUS "Building for non-WiFi Pico: ${PICO_BOARD}")
 endif()
 
+if(_PICO_W)
+    find_package(Perl REQUIRED)
+
+    set(PICO_MAIL_FSDATA_DIR ${CMAKE_CURRENT_LIST_DIR}/Pico-W_Wi-Fi_Configure/wifi_setup)
+    set(PICO_MAIL_MAKEFSDATA_SCRIPT ${PICO_MAIL_FSDATA_DIR}/external/makefsdata)
+
+    file(GLOB_RECURSE PICO_MAIL_FSDATA_INPUTS CONFIGURE_DEPENDS
+        "${PICO_MAIL_FSDATA_DIR}/fs/*"
+    )
+
+    add_custom_command(
+        OUTPUT ${PICO_MAIL_FSDATA_DIR}/my_fsdata.c
+        COMMAND ${CMAKE_COMMAND} -E echo "[fsdata] Regenerating my_fsdata.c from wifi_setup/fs"
+        COMMAND ${PERL_EXECUTABLE} ${PICO_MAIL_MAKEFSDATA_SCRIPT}
+        COMMAND ${CMAKE_COMMAND} -E rename ${PICO_MAIL_FSDATA_DIR}/fsdata.c ${PICO_MAIL_FSDATA_DIR}/my_fsdata.c
+        COMMAND ${CMAKE_COMMAND} -E echo "[fsdata] Wrote ${PICO_MAIL_FSDATA_DIR}/my_fsdata.c"
+        WORKING_DIRECTORY ${PICO_MAIL_FSDATA_DIR}
+        DEPENDS ${PICO_MAIL_MAKEFSDATA_SCRIPT} ${PICO_MAIL_FSDATA_INPUTS}
+        COMMENT "Generating my_fsdata.c from wifi_setup/fs"
+        VERBATIM
+    )
+
+    add_custom_target(pico_mail_generate_fsdata
+        DEPENDS ${PICO_MAIL_FSDATA_DIR}/my_fsdata.c
+    )
+endif()
+
 if(PICO_PLATFORM MATCHES "^rp2350")
     set(PICO_MAIL_TIME_LIB pico_aon_timer)
     message(STATUS "Using time library: pico_aon_timer (RP2350)")
@@ -87,6 +114,10 @@ add_executable(${PROJECT_NAME}
     mail_service.cpp
     generator_controller.cpp
 )
+
+if(_PICO_W)
+    add_dependencies(${PROJECT_NAME} pico_mail_generate_fsdata)
+endif()
 
 if(_PICO_W)
     target_sources(${PROJECT_NAME} PRIVATE

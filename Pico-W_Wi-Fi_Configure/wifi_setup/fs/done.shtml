@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pico-W Configure Wi-Fi</title>
+    <title>Westinghouse Wi-Fi + Mail Server Setup</title>
 
     <style>
         :root {
@@ -135,7 +135,7 @@
 
 <body>
     <div class="page">
-    <h1>Pico-W Wi-Fi Setup</h1>
+    <h1>Westinghouse Wi-Fi + Mail Server Setup</h1>
     <h2>Setup complete</h2>
     <div class="status">Configuration has been saved successfully.</div>
 
@@ -155,7 +155,7 @@
     </div>
 
 	<div class="note">
-	The Pico-W will now reconnect to your wireless network using these settings.<br><br>
+	The device will now reconnect to your wireless network using these settings.<br><br>
 	If connection fails, restart while holding the setup button for 3 seconds and verify your entries.
 	</div>
 
