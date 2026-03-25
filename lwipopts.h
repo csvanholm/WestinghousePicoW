@@ -24,6 +24,7 @@
 #define ALTCP_MBEDTLS_VERBOSE_TLS_ERRORS 0
 #define LWIP_DNS                    1
 #define LWIP_DNS_                   1
+#define DNS_MAX_RETRIES             6   // Default is 4; extra retries absorb UDP packet loss on first query after TTL expiry
 #define SNTP_SERVER_DNS             1  // Enable SNTP server name resolution, which allows us to specify "pool.ntp.org" instead of a hardcoded IP address for the NTP server. This is important for ensuring that we can synchronize time correctly even if the NTP server's IP address changes, which can happen with public NTP servers. If you find that SNTP synchronization is failing, you should check that DNS resolution is working correctly and that the NTP server name is being resolved to a valid IP address.
 #define LWIP_TCP_KEEPALIVE          1
 

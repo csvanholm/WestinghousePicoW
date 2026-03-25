@@ -1243,7 +1243,16 @@ int PicoMail::FlushOutbox()
 
   if (m_flushState == FlushState::WaitingForDns)
   {
-    VerifyDnsAndSend(m_smtpServer);
+    // Only call VerifyDnsAndSend while the query is still in-flight so it can
+    // check the application-level timeout.  Do NOT call it when the callback
+    // has already set a terminal failure state: VerifyDnsAndSend treats Failed/
+    // TimedOut as restartable and would immediately launch a new query, flipping
+    // state back to Waiting before we can detect the failure below.
+    if (g_dnsQueryState == DnsQueryState::Waiting)
+    {
+      VerifyDnsAndSend(m_smtpServer);
+    }
+
     if (g_dnsQueryState == DnsQueryState::Waiting)
     {
       return -1;
