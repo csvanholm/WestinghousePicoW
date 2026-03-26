@@ -40,12 +40,12 @@ extern "C" {
 //must be defined for Pico W but is now set by board type in the CMakeFiles.txt
 
 // Your timezone offset in seconds (e.g., -5 hours for EST = -18000)
-#define UTC_OFFSET_SECONDS (-4 * 3600)
+#define UTC_OFFSET_SECONDS (-4 * 3600) // 5hr-1hr for EST daylight saving time
 
 // remember to update the to email !!!  
-const char RECIPIENT_EMAIL[] = "csvanholm@comcast.net"; // recipient (to) email
-const char EMAIL_SUBJECT[] = "Hello world from Pico-W";
-const char EMAIL_BODY[] = "This email was sent using the Pico SDK LwIP SMTP client.";
+const char RECIPIENT_EMAIL[] = ""; // recipient (to) email
+const char EMAIL_SUBJECT[] = "Hello world";
+const char EMAIL_BODY[] = "Pico SDK LwIP SMTP client.";
 
 
 PicoMail::QueuedEmail PicoMail::m_outbox[PicoMail::OUTBOX_CAPACITY] = {};
@@ -193,12 +193,10 @@ static bool IsDnsServerUsable(const ip_addr_t *dns)
   {
     return false;
   }
-
   if ((strcmp(addrText, "0.0.0.0") == 0) || (strcmp(addrText, "::") == 0))
   {
     return false;
   }
-
   return true;
 }
 
@@ -407,12 +405,14 @@ PicoMail::PicoMail() : m_tlsConfig(NULL)
   PicoMail::m_lastSmtpResult.store(0);
   PicoMail::m_lastSmtpSrvErr.store(0);
   PicoMail::m_lastSmtpErr.store((int16_t)ERR_OK);
+  /*
   SafeCopy(m_smtpServer, sizeof(m_smtpServer), SMTP_SERVER);
   SafeCopy(m_senderEmail, sizeof(m_senderEmail), SENDER_EMAIL);
   SafeCopy(m_senderPassword, sizeof(m_senderPassword), SENDER_PASSWORD);
   SafeCopy(m_recipientEmail, sizeof(m_recipientEmail), RECIPIENT_EMAIL);
   m_smtpPort = (uint16_t)SMTP_PORT;
-}
+  */
+  }
 
 PicoMail::~PicoMail()
 {
@@ -453,7 +453,7 @@ const char *PicoMail::GetRecipientEmail() const
 }
 
 void PicoMail::ConfigureRuntimeSmtp(const char *server,
-                                    uint16_t port,
+                                    const uint16_t port,
                                     const char *senderEmail,
                                     const char *senderPassword,
                                     const char *recipientEmail)
@@ -2090,7 +2090,7 @@ int PicoMail::Connect()
   // only when no runtime credentials have been stored yet, so that non-provisioning
   // builds that supply WIFI_SSID/WIFI_PASSWORD via CMake flags continue to work.
   const char *ssid     = (m_wifiSsid[0] != '\0') ? m_wifiSsid     : WIFI_SSID;
-  const char *password = (m_wifiSsid[0] != '\0') ? m_wifiPassword  : WIFI_PASSWORD;
+  const char *password = (m_wifiSsid[0] != '\0') ? m_wifiPassword : WIFI_PASSWORD;
   return ConnectWithCredentials(ssid, password, false);
 }
 

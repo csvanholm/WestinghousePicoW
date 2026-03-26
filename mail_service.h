@@ -25,7 +25,7 @@
 #endif
 
 #ifndef SENDER_EMAIL
-#define SENDER_EMAIL "your_email@example.com"
+#define SENDER_EMAIL "your_email@gmail.com"
 #endif
 
 #ifndef SENDER_PASSWORD
@@ -36,9 +36,11 @@
 #define SMTP_PORT 465
 #endif
 
+
 class PicoMail
 {
-private:
+ private:
+ 
   struct QueuedEmail
   {
     char from[64];
@@ -56,13 +58,13 @@ private:
     WaitingForCallback
   };
 
-  static constexpr uint8_t OUTBOX_CAPACITY = 16;
-  static constexpr uint8_t kMaxBusyRetries = 3;
+  static constexpr uint8_t  OUTBOX_CAPACITY   = 16;
+  static constexpr uint8_t  kMaxBusyRetries   = 3;
   static constexpr uint32_t kBusyRetryDelayMs = 200;
-  static constexpr uint32_t kDnsRetryDelayMs = 3000;
+  static constexpr uint32_t kDnsRetryDelayMs  = 3000;
   static constexpr uint32_t kAuthRetryDelayMs = 300000;
 
-public:
+ public:
   static std::atomic<uint8_t> m_emailSent;
   static std::atomic<bool> m_isDnsResolved;
   static std::atomic<bool> m_isConnected;
@@ -70,7 +72,7 @@ public:
   static std::atomic<uint16_t> m_lastSmtpSrvErr;
   static std::atomic<int16_t> m_lastSmtpErr;
 
-private:
+ private:
   struct altcp_tls_config *m_tlsConfig;
 
   static QueuedEmail m_outbox[OUTBOX_CAPACITY];
@@ -102,11 +104,13 @@ public:
   int DeInitLwip();
   const char *WifiConnectErrorToString(int err);
   int WifiConnect(const char *ssid, const char *password, bool force_dns = false);
+  
   void ConfigureRuntimeSmtp(const char *server,
                             uint16_t port,
                             const char *senderEmail,
                             const char *senderPassword,
                             const char *recipientEmail);
+  
   int ConnectWithCredentials(const char *ssid, const char *password, bool force_dns = false);
   int Connect();
   int Disconnect(bool hardDeinit = true);
