@@ -44,7 +44,8 @@ void run_access_point(config *config)
 {
     _c = config;
 
-    if(_c->magic != MAGIC){
+    if (_c->magic != MAGIC)
+    {
         _c->version = CONFIG_VERSION;
         memset(_c->ssid, '\0', SSID_MAX_LEN);
         memset(_c->passwd, '\0', PASSWD_MAX_LEN);
@@ -53,7 +54,7 @@ void run_access_point(config *config)
         memset(_c->sender_email, '\0', EMAIL_MAX_LEN + 1);
         memset(_c->sender_password, '\0', SMTP_PASS_MAX_LEN + 1);
         memset(_c->recipient_email, '\0', EMAIL_MAX_LEN + 1);
-     }
+    }
 
     const char *ap_name = AP_SSID;
 #ifdef AP_PASSWD
@@ -88,11 +89,12 @@ void run_access_point(config *config)
 #else
     cyw43_arch_enable_sta_mode();
     printf("Connecting to WiFi...\n");
-    if (cyw43_arch_wifi_connect_timeout_ms("MY_SSID", "MY_PASSWORD", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+    if (cyw43_arch_wifi_connect_timeout_ms("MY_SSID", "MY_PASSWORD", CYW43_AUTH_WPA2_AES_PSK, 30000))
+    {
         printf("failed to connect.\n");
         return;
-    }
-    else {
+    } else
+    {
         printf("connected.\n");
     }
     printf("IP-Address: %s Port: %d\n",
@@ -102,12 +104,14 @@ void run_access_point(config *config)
     // and the http server
     run_http_server();
 
-    while(!isConfigured) {
+    while (!isConfigured)
+    {
         static absolute_time_t led_time;
         static int led_on = true;
 
         // flash the led to show that we are in config mode
-        if (absolute_time_diff_us(get_absolute_time(), led_time) < 0) {
+        if (absolute_time_diff_us(get_absolute_time(), led_time) < 0)
+        {
             led_on = !led_on;
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
             led_time = make_timeout_time_ms(250);
@@ -134,17 +138,17 @@ bool forceSetup()
     gpio_init(SETUP_GPIO);
     gpio_set_dir(SETUP_GPIO, GPIO_IN);
     gpio_pull_up(SETUP_GPIO);
-    if(!gpio_get(SETUP_GPIO))
+    if (!gpio_get(SETUP_GPIO))
     {
         static absolute_time_t reset_time;
         reset_time = make_timeout_time_ms(SETUP_DELAY * 1000);
         while (absolute_time_diff_us(get_absolute_time(), reset_time) > 0 && !gpio_get(SETUP_GPIO))
             sleep_ms(1);
 
-        if(!gpio_get(SETUP_GPIO))
+        if (!gpio_get(SETUP_GPIO))
         {
-         DEBUG_printf("Re-run setup requested\n");
-         return true;
+            DEBUG_printf("Re-run setup requested\n");
+            return true;
         }
     }
     return false;
@@ -157,7 +161,8 @@ bool forceSetup()
  * and the LAN
  */
 
-static void run_http_server() {
+static void run_http_server()
+{
     httpd_init();
     ssi_init();
     cgi_init();

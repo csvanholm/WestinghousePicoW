@@ -71,24 +71,29 @@ static void append_message(char *buffer, size_t buffer_len, const char *message)
 {
     size_t used;
 
-    if ((buffer == NULL) || (buffer_len == 0) || (message == NULL) || (message[0] == '\0')) {
+    if ((buffer == NULL) || (buffer_len == 0) || (message == NULL) || (message[0] == '\0'))
+    {
         return;
     }
 
     used = strlen(buffer);
-    if (used >= (buffer_len - 1)) {
+    if (used >= (buffer_len - 1))
+    {
         return;
     }
 
-    if (used > 0) {
+    if (used > 0)
+    {
         int printed = snprintf(buffer + used,
                                buffer_len - used,
                                " %s",
                                message);
-        if (printed < 0) {
+        if (printed < 0)
+        {
             buffer[used] = '\0';
         }
-    } else {
+    } else
+    {
         snprintf(buffer, buffer_len, "%s", message);
     }
 }
@@ -100,7 +105,8 @@ static void append_validation_message(const char *message)
 
 static bool has_at_sign(const char *text)
 {
-    if (text == NULL) {
+    if (text == NULL)
+    {
         return false;
     }
     return strchr(text, '@') != NULL;
@@ -108,7 +114,8 @@ static bool has_at_sign(const char *text)
 
 static char to_lower_ascii(char c)
 {
-    if ((c >= 'A') && (c <= 'Z')) {
+    if ((c >= 'A') && (c <= 'Z'))
+    {
         return (char)(c - 'A' + 'a');
     }
     return c;
@@ -119,25 +126,31 @@ static bool contains_case_insensitive(const char *text, const char *needle)
     size_t text_len;
     size_t needle_len;
 
-    if ((text == NULL) || (needle == NULL) || (needle[0] == '\0')) {
+    if ((text == NULL) || (needle == NULL) || (needle[0] == '\0'))
+    {
         return false;
     }
 
     text_len = strlen(text);
     needle_len = strlen(needle);
-    if (needle_len > text_len) {
+    if (needle_len > text_len)
+    {
         return false;
     }
 
-    for (size_t i = 0; i <= (text_len - needle_len); i++) {
+    for (size_t i = 0; i <= (text_len - needle_len); i++)
+    {
         bool match = true;
-        for (size_t j = 0; j < needle_len; j++) {
-            if (to_lower_ascii(text[i + j]) != to_lower_ascii(needle[j])) {
+        for (size_t j = 0; j < needle_len; j++)
+        {
+            if (to_lower_ascii(text[i + j]) != to_lower_ascii(needle[j]))
+            {
                 match = false;
                 break;
             }
         }
-        if (match) {
+        if (match)
+        {
             return true;
         }
     }
@@ -150,18 +163,22 @@ static bool ends_with_case_insensitive(const char *text, const char *suffix)
     size_t text_len;
     size_t suffix_len;
 
-    if ((text == NULL) || (suffix == NULL) || (suffix[0] == '\0')) {
+    if ((text == NULL) || (suffix == NULL) || (suffix[0] == '\0'))
+    {
         return false;
     }
 
     text_len = strlen(text);
     suffix_len = strlen(suffix);
-    if (suffix_len > text_len) {
+    if (suffix_len > text_len)
+    {
         return false;
     }
 
-    for (size_t i = 0; i < suffix_len; i++) {
-        if (to_lower_ascii(text[text_len - suffix_len + i]) != to_lower_ascii(suffix[i])) {
+    for (size_t i = 0; i < suffix_len; i++)
+    {
+        if (to_lower_ascii(text[text_len - suffix_len + i]) != to_lower_ascii(suffix[i]))
+        {
             return false;
         }
     }
@@ -171,16 +188,19 @@ static bool ends_with_case_insensitive(const char *text, const char *suffix)
 
 static bool smtp_sender_matches_provider(const char *smtp_server, const char *sender_email)
 {
-    if ((smtp_server == NULL) || (sender_email == NULL)) {
+    if ((smtp_server == NULL) || (sender_email == NULL))
+    {
         return false;
     }
 
     // If the host suggests a major provider, enforce matching sender domains.
-    if (contains_case_insensitive(smtp_server, "gmail")) {
+    if (contains_case_insensitive(smtp_server, "gmail"))
+    {
         return ends_with_case_insensitive(sender_email, "@gmail.com");
     }
 
-    if (contains_case_insensitive(smtp_server, "yahoo")) {
+    if (contains_case_insensitive(smtp_server, "yahoo"))
+    {
         return ends_with_case_insensitive(sender_email, "@yahoo.com") ||
                ends_with_case_insensitive(sender_email, "@ymail.com") ||
                ends_with_case_insensitive(sender_email, "@rocketmail.com");
@@ -188,7 +208,8 @@ static bool smtp_sender_matches_provider(const char *smtp_server, const char *se
 
     if (contains_case_insensitive(smtp_server, "outlook") ||
         contains_case_insensitive(smtp_server, "office365") ||
-        contains_case_insensitive(smtp_server, "hotmail")) {
+        contains_case_insensitive(smtp_server, "hotmail"))
+    {
         return ends_with_case_insensitive(sender_email, "@outlook.com") ||
                ends_with_case_insensitive(sender_email, "@hotmail.com") ||
                ends_with_case_insensitive(sender_email, "@live.com") ||
@@ -207,7 +228,8 @@ static bool smtp_sender_matches_provider(const char *smtp_server, const char *se
 void ssi_init()
 {
     size_t i;
-    for (i = 0; i < LWIP_ARRAYSIZE(ssi_tags); i++) {
+    for (i = 0; i < LWIP_ARRAYSIZE(ssi_tags); i++)
+    {
         LWIP_ASSERT("tag too long for LWIP_HTTPD_MAX_TAG_NAME_LEN",
                     strlen(ssi_tags[i]) <= LWIP_HTTPD_MAX_TAG_NAME_LEN);
     }
@@ -232,9 +254,11 @@ u16_t __time_critical_func(ssi_handler)(int iIndex, char *pcInsert, int iInsertL
     char webStr[PASSWD_MAX_LEN * 2];
 
     size_t printed = 0;
-    switch (iIndex) {
+    switch (iIndex)
+    {
         case 0: /* "SSID" */
-            if(*(_c->ssid) == '\0'){
+            if (*(_c->ssid) == '\0')
+            {
                 printed = snprintf(pcInsert, iInsertLen, "%s", HIGHLIGHT);
                 break;
             }
@@ -278,9 +302,11 @@ u16_t __time_critical_func(ssi_handler)(int iIndex, char *pcInsert, int iInsertL
             break;
 
         case 7: /* setup token */
-            if (token_err) {
+            if (token_err)
+            {
                 printed = snprintf(pcInsert, iInsertLen, "%s", HIGHLIGHT);
-            } else {
+            } else
+            {
                 printed = snprintf(pcInsert, iInsertLen, "%s", "");
             }
             break;
@@ -352,8 +378,10 @@ u16_t __time_critical_func(ssi_handler)(int iIndex, char *pcInsert, int iInsertL
 
 void encode_value(char *src, char *dest)
 {
-    while(*src){
-        if(*src == '"'){
+    while (*src)
+    {
+        if (*src == '"')
+        {
             *dest++ = '&';
             *dest++ = 'q';
             *dest++ = 'u';
@@ -361,8 +389,8 @@ void encode_value(char *src, char *dest)
             *dest++ = 't';
             *dest++ = ';';
             src++;
-        }
-        else{
+        } else
+        {
             *dest++ = *src++;
         }
     }
@@ -380,8 +408,7 @@ static const tCGI cgi_handlers[] = {
  * initialize the CGI handler
  */
 
-void
-cgi_init(void)
+void cgi_init(void)
 {
     http_set_cgi_handlers(cgi_handlers, 1);
 }
@@ -392,8 +419,7 @@ cgi_init(void)
  * This cgi handler triggered by a request for "/setup.cgi"
  */
 
-const char *
-cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char * cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
     bool provider_mismatch = false;
 
@@ -406,36 +432,48 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
     bool token_match = false;
 #endif
 
-    for (int i = 0; i < iNumParams; i++){
-        if(strcmp(pcParam[i], "ssid") == 0){
+    for (int i = 0; i < iNumParams; i++)
+    {
+        if (strcmp(pcParam[i], "ssid") == 0)
+        {
             url_decode(pcValue[i], _c->ssid);
-        }
-        else if(strcmp(pcParam[i], "passwd") == 0){
+        } else
+        if (strcmp(pcParam[i], "passwd") == 0)
+        {
             url_decode(pcValue[i], _c->passwd);
-        }
-        else if(strcmp(pcParam[i], "smtp_server") == 0){
+        } else
+        if (strcmp(pcParam[i], "smtp_server") == 0)
+        {
             url_decode(pcValue[i], _c->smtp_server);
-        }
-        else if(strcmp(pcParam[i], "smtp_port") == 0){
-            if (pcValue[i][0] != '\0') {
+        } else
+        if (strcmp(pcParam[i], "smtp_port") == 0)
+        {
+            if (pcValue[i][0] != '\0')
+            {
                 int port = atoi(pcValue[i]);
-                if ((port <= 0) || (port > 65535)) {
+                if ((port <= 0) || (port > 65535))
+                {
                     smtp_err = true;
-                } else {
+                } else
+                {
                     _c->smtp_port = (uint16_t)port;
                 }
             }
-        }
-        else if(strcmp(pcParam[i], "sender_email") == 0){
+        } else
+        if (strcmp(pcParam[i], "sender_email") == 0)
+        {
             url_decode(pcValue[i], _c->sender_email);
-        }
-        else if(strcmp(pcParam[i], "sender_password") == 0){
+        } else
+        if (strcmp(pcParam[i], "sender_password") == 0)
+        {
             url_decode(pcValue[i], _c->sender_password);
-        }
-        else if(strcmp(pcParam[i], "recipient_email") == 0){
+        } else
+        if (strcmp(pcParam[i], "recipient_email") == 0)
+        {
             url_decode(pcValue[i], _c->recipient_email);
-        }
-        else if(strcmp(pcParam[i], "setup_token") == 0){
+        } else
+        if (strcmp(pcParam[i], "setup_token") == 0)
+        {
     #ifdef SETUP_PORTAL_TOKEN
             token_present = true;
             token_match = (strcmp(pcValue[i], SETUP_PORTAL_TOKEN) == 0);
@@ -448,27 +486,32 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
         (_c->sender_password[0] == '\0') ||
         (_c->recipient_email[0] == '\0') ||
         !has_at_sign(_c->sender_email) ||
-        !has_at_sign(_c->recipient_email)) {
+        !has_at_sign(_c->recipient_email))
+    {
         smtp_err = true;
     }
 
-    if (!smtp_err && !smtp_sender_matches_provider(_c->smtp_server, _c->sender_email)) {
+    if (!smtp_err && !smtp_sender_matches_provider(_c->smtp_server, _c->sender_email))
+    {
         smtp_err = true;
         provider_mismatch = true;
     }
 
-    if ((_c->ssid[0] == '\0') || (_c->passwd[0] == '\0')) {
+    if ((_c->ssid[0] == '\0') || (_c->passwd[0] == '\0'))
+    {
         append_message(wifi_validation_message,
                        sizeof(wifi_validation_message),
                        "Wi-Fi SSID and password are required.");
     }
 
-    if (smtp_err) {
+    if (smtp_err)
+    {
         append_message(mail_validation_message,
                        sizeof(mail_validation_message),
                        "Enter SMTP host, port, sender email, sender password, and recipient email.");
         append_validation_message("SMTP settings are incomplete or email addresses are invalid.");
-        if (provider_mismatch) {
+        if (provider_mismatch)
+        {
             append_message(mail_validation_message,
                            sizeof(mail_validation_message),
                            "Sender email must match the SMTP provider domain (e.g., Gmail host with @gmail.com sender)."
@@ -478,10 +521,12 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
     }
 
 #ifdef SETUP_PORTAL_TOKEN
-    if ((!token_present) || (!token_match)) {
+    if ((!token_present) || (!token_match))
+    {
         token_err = true;
     }
-    if (token_err) {
+    if (token_err)
+    {
         append_message(token_validation_message,
                        sizeof(token_validation_message),
                        "Provide the correct setup token to save changes.");
@@ -489,18 +534,19 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
     }
 #endif
 
-    if(!(smtp_err || token_err))
+    if (!(smtp_err || token_err))
         DEBUG_printf("Configure OK\n");
     else
         DEBUG_printf("Configure ERROR\n");
 
-    if(!(smtp_err || token_err)){
+    if (!(smtp_err || token_err))
+    {
         _c->magic = MAGIC;
         _c->version = CONFIG_VERSION;
         isConfigured = true;
         return "/done.shtml";
-    }
-    else{
+    } else
+    {
         return "/index.shtml";
     }
 }
@@ -515,13 +561,16 @@ cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 
 void url_decode(char *src, char *dest)
 {
-    while(*src){
-        if(*src == '+'){
+    while (*src)
+    {
+        if (*src == '+')
+        {
             *dest = ' ';
             src++;
             dest++;
-        }
-        else if(*src == '%'){
+        } else
+        if (*src == '%')
+        {
             char a[3];
 
             a[0] = *++src;
@@ -529,8 +578,8 @@ void url_decode(char *src, char *dest)
             a[2] = '\0';
             *dest++ = strtol(a, NULL, 16);
             src++;
-        }
-        else{
+        } else
+        {
             *dest++ = *src++;
         }
     }

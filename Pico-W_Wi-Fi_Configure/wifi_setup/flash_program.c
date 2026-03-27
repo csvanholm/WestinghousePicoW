@@ -66,7 +66,7 @@ void flash_erase_page(size_t pageStart, size_t numPages)
     // We can only erase a whole sector, which has 16 pages
     // So we read the sector (all 16 pages) first and save it
     buf = (uint8_t *)malloc(FLASH_SECTOR_SIZE);
-    if(!buf)
+    if (!buf)
         DEBUG_printf("malloc failed\n");
     memcpy(buf, flash_target_contents, FLASH_SECTOR_SIZE);
 
@@ -74,7 +74,8 @@ void flash_erase_page(size_t pageStart, size_t numPages)
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
 
     //next set numPages, starting at pageStart to 0xFF
-    for(int i = 0; i < (numPages * FLASH_PAGE_SIZE); i++){
+    for (int i = 0; i < (numPages * FLASH_PAGE_SIZE); i++)
+    {
         buf[(pageStart * FLASH_PAGE_SIZE) + i] = 0xFF;
     }
 

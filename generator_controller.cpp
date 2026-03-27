@@ -4,7 +4,8 @@
 
 #include "pico/stdlib.h"
 
-extern "C" {
+extern "C" 
+{
 #include "FreeRTOS.h"
 #include "task.h"
 }
@@ -15,26 +16,26 @@ extern "C" {
 
 namespace
 {
-const uint GENERATOR_RUNNING = 14;
-const uint LINE_POWER_FAIL = 16;
-const uint START_STOP_RELAY = 18;
-const uint USE_WEEKLY_EXERCISER = 5;
+ const uint GENERATOR_RUNNING = 14;
+ const uint LINE_POWER_FAIL = 16;
+ const uint START_STOP_RELAY = 18;
+ const uint USE_WEEKLY_EXERCISER = 5;
 
-const uint LED_BLUE = 15;
-const uint LED_RED = 11;
-const uint LED_YELLOW = 9;
-const uint LED_WHITE = 7;
+ const uint LED_BLUE = 15;
+ const uint LED_RED = 11;
+ const uint LED_YELLOW = 9;
+ const uint LED_WHITE = 7;
 
-static void DelayMs(uint32_t delayMs)
-{
-  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
-  {
-    vTaskDelay(pdMS_TO_TICKS(delayMs));
-  } else
-  {
-    sleep_ms(delayMs);
-  }
-}
+ static void DelayMs(uint32_t delayMs)
+ {
+   if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+   {
+     vTaskDelay(pdMS_TO_TICKS(delayMs));
+   } else
+   {
+     sleep_ms(delayMs);
+   }
+ }
 }
 
 

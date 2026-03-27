@@ -72,7 +72,6 @@ endif()
 
 if(_PICO_W)
     find_package(Perl REQUIRED)
-
     set(PICO_MAIL_FSDATA_DIR ${CMAKE_CURRENT_LIST_DIR}/Pico-W_Wi-Fi_Configure/wifi_setup)
     set(PICO_MAIL_MAKEFSDATA_SCRIPT ${PICO_MAIL_FSDATA_DIR}/external/makefsdata)
 

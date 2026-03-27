@@ -36,13 +36,13 @@ extern "C" {
 #include "pico/util/datetime.h"
 #include <time.h>
 
-//#define _PICO_W   
+//#define _PICO_W
 //must be defined for Pico W but is now set by board type in the CMakeFiles.txt
 
 // Your timezone offset in seconds (e.g., -5 hours for EST = -18000)
 #define UTC_OFFSET_SECONDS (-4 * 3600) // 5hr-1hr for EST daylight saving time
 
-// remember to update the to email !!!  
+// remember to update the to email !!!
 const char RECIPIENT_EMAIL[] = ""; // recipient (to) email
 const char EMAIL_SUBJECT[] = "Hello world";
 const char EMAIL_BODY[] = "Pico SDK LwIP SMTP client.";
@@ -272,7 +272,7 @@ static void EnsureDnsServersConfigured(const char *reason)
     printf("[SMTP] DNS fallback applied: dns1=%s dns2=%s\n",
           dns1Text,
           dns2Text);
-  } else 
+  } else
   if (dns1Unset || dns2Unset)
   {
     printf("[SMTP] Single DHCP DNS server detected (%s): dns1=%s dns2=%s. Keeping DHCP DNS.\n",
@@ -460,11 +460,13 @@ void PicoMail::ConfigureRuntimeSmtp(const char *server,
 {
   bool changed = false;
 
-  auto is_ascii_space = [](char c) -> bool {
+  auto is_ascii_space = [](char c) -> bool 
+  {
     return (c == ' ') || (c == '\t') || (c == '\r') || (c == '\n');
   };
 
-  auto copy_trimmed = [&](char *destination, size_t destinationSize, const char *source) -> bool {
+  auto copy_trimmed = [&](char *destination, size_t destinationSize, const char *source) -> bool 
+  {
     if ((destination == NULL) || (destinationSize == 0) || (source == NULL))
     {
       return false;
@@ -768,8 +770,8 @@ bool poll_ntp_sync()
     }
 
     if (PicoMail::m_isConnected.load() &&
-        ((state == NtpSyncState::Idle) || 
-         (state == NtpSyncState::TimedOut) || 
+        ((state == NtpSyncState::Idle) ||
+         (state == NtpSyncState::TimedOut) ||
          (state == NtpSyncState::Failed)))
     {
       const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
@@ -867,38 +869,38 @@ static int get_local_time(char *time, size_t timeSize, char *date, size_t dateSi
   struct tm utc_tm = {0};
   if (get_platform_utc_time(&utc_tm))
   {
-   // Reject obviously unsynced/default calendar values.
-   if (utc_tm.tm_year < (2020 - 1900))
-   {
-     return -1;
-   }
+    // Reject obviously unsynced/default calendar values.
+    if (utc_tm.tm_year < (2020 - 1900))
+    {
+      return -1;
+    }
 
-   time_t utc_epoch = 0;
-   if (!convert_utc_tm_to_epoch(&utc_tm, &utc_epoch))
-   {
-     return -1;
-   }
+    time_t utc_epoch = 0;
+    if (!convert_utc_tm_to_epoch(&utc_tm, &utc_epoch))
+    {
+      return -1;
+    }
 
-   time_t local_epoch = utc_epoch + UTC_OFFSET_SECONDS;
-   struct tm local_tm = {0};
+    time_t local_epoch = utc_epoch + UTC_OFFSET_SECONDS;
+    struct tm local_tm = {0};
 
-   if (!convert_epoch_to_utc_tm(local_epoch, &local_tm))
-   {
-     return -1;
-   }
+    if (!convert_epoch_to_utc_tm(local_epoch, &local_tm))
+    {
+      return -1;
+    }
 
     snprintf(time, timeSize, "%02d:%02d:%02d",
                  local_tm.tm_hour,local_tm.tm_min,local_tm.tm_sec);
-   
+
     snprintf(date, dateSize, "%02d/%02d/%04d",
                 local_tm.tm_mon + 1,local_tm.tm_mday,local_tm.tm_year + 1900);
-  
+
     return 0;
   } else
   {
-   return -1;
+    return -1;
   }
- return -1;
+  return -1;
 }
 
 
@@ -906,7 +908,7 @@ static int get_local_time(char *time, size_t timeSize, char *date, size_t dateSi
  * @brief Computes estimated total heap size from linker symbols.
  * @return Estimated heap size in bytes.
  */
-uint32_t getTotalHeap(void) 
+uint32_t getTotalHeap(void)
 {
   extern char __StackLimit, __bss_end__;
   return &__StackLimit - &__bss_end__;
@@ -946,7 +948,7 @@ static AllocatorStats ReadAllocatorStats()
  * @brief Computes approximate free heap.
  * @return Estimated free heap bytes.
  */
-uint32_t getFreeHeap(void) 
+uint32_t getFreeHeap(void)
 {
   const AllocatorStats stats = ReadAllocatorStats();
   if (!stats.available)
@@ -959,7 +961,7 @@ uint32_t getFreeHeap(void)
 /**
  * @brief Prints heap and local-time diagnostics.
  */
-void print_memory_usage() 
+void print_memory_usage()
 {
   const AllocatorStats stats = ReadAllocatorStats();
   const uint32_t totalHeap = getTotalHeap();
@@ -1056,7 +1058,7 @@ bool PicoMail::EnQueueEmail(const char *from, const char *to, const char *subjec
   return true;
 }
 
- 
+
 /**
  * @brief Builds a human-readable status email and enqueues it.
  * @return true when the status email is queued; false on enqueue failure.
@@ -1305,7 +1307,7 @@ int PicoMail::FlushOutbox()
         m_busyRetryCount = 0;
         printf("[SMTP] Authentication rejected (535). Pausing retries for %u ms.\n",
                (unsigned)m_retryDelayMs);
-      } else 
+      } else
       if ((lastResult == SMTP_RESULT_ERR_HOSTNAME) || (lastErr == ERR_ARG))
       {
         PrintDnsServerDiagnostics("Callback hostname failure");
@@ -1565,7 +1567,7 @@ void PicoMail::mailsent_callback(void *arg, u8_t smtp_result, u16_t srv_err, err
            (int)err);
     // Descriptive error messages based on smtp_result
     /*
-    switch (smtp_result) 
+    switch (smtp_result)
     {
       case 1:  // SMTP_RESULT_ERR_UNKNOWN
         printf("Error: Unknown SMTP error occurred.\n");
@@ -1602,7 +1604,7 @@ void PicoMail::mailsent_callback(void *arg, u8_t smtp_result, u16_t srv_err, err
         printf("Error: SMTP authentication failed.\n");
         printf("Suggestion: Verify username and password. Use app-specific passwords if required.\n");
         break;
-     
+
         default:
         printf("Error: Unspecified SMTP error (code: %d).\n", smtp_result);
         printf("Suggestion: Check lwIP SMTP documentation for this error code.\n");
@@ -1610,7 +1612,7 @@ void PicoMail::mailsent_callback(void *arg, u8_t smtp_result, u16_t srv_err, err
     }
     */
     // Additional messages based on srv_err (SMTP response codes)
-    if (srv_err != 0) 
+    if (srv_err != 0)
     {
       printf("SMTP Server Response Code: %d\n", srv_err);
       if (srv_err == 535)
@@ -1621,7 +1623,7 @@ void PicoMail::mailsent_callback(void *arg, u8_t smtp_result, u16_t srv_err, err
                g_lastConfiguredSender);
       }
       /*
-      switch (srv_err) 
+      switch (srv_err)
       {
         case 421:
           printf("Server response: Service not available.\n");
@@ -1674,12 +1676,12 @@ void PicoMail::mailsent_callback(void *arg, u8_t smtp_result, u16_t srv_err, err
       }
       */
     }
-    
+
     // Messages based on err (lwIP err_t)
-    if (err != ERR_OK) 
+    if (err != ERR_OK)
     {
       printf("lwIP Error: ");
-      switch (err) 
+      switch (err)
       {
         case ERR_MEM:
           printf("Out of memory.\n");
@@ -1785,7 +1787,7 @@ void PicoMail::CheckGatewayIpDns()
     }
   }
   printf("Memory Usage:\n");
-  print_memory_usage(); 
+  print_memory_usage();
 }
 
 
@@ -1833,7 +1835,7 @@ int PicoMail::DeInitLwip()
   printf("DeInitLwIP...\n");
   if (g_cyw43ArchInitialized)
   {
-   cyw43_arch_deinit();
+    cyw43_arch_deinit();
   } else
   {
     printf("Wi-Fi was not initialized, skipping deinit.\n");
@@ -1852,11 +1854,11 @@ const char *PicoMail::WifiConnectErrorToString(int err)
 {
   switch (err)
   {
-   case  0: return "Success";
-   case -1: return "Timeout";
-   case -2: return "Bad authentication (wrong password)";
-   case -3: return "Connection failed";
-   default: return "Unknown error";
+    case  0: return "Success";
+    case -1: return "Timeout";
+    case -2: return "Bad authentication (wrong password)";
+    case -3: return "Connection failed";
+    default: return "Unknown error";
   }
 }
 
@@ -2039,31 +2041,31 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
 
   printf("Connected to Wi-Fi\n\n");
   m_isConnected.store(true);
-  
-  // Port 465 is the only port supported by the lwIP SMTP client with TLS, 
-  // which uses implicit TLS. Port 587 with STARTTLS is not currently supported by 
-  // the lwIP SMTP client, and attempting to use it will likely result in connection 
-  // failures or timeouts, because the client will not be able to properly negotiate the 
-  // TLS connection with the server. If you want to use port 587 with STARTTLS, 
-  // you would need to implement the STARTTLS negotiation yourself in your code before calling 
-  // smtp_send_mail, which can be complex and is not currently provided by the lwIP 
-  // SMTP client out of the box. For testing purposes, it's recommended to use port 465 
+
+  // Port 465 is the only port supported by the lwIP SMTP client with TLS,
+  // which uses implicit TLS. Port 587 with STARTTLS is not currently supported by
+  // the lwIP SMTP client, and attempting to use it will likely result in connection
+  // failures or timeouts, because the client will not be able to properly negotiate the
+  // TLS connection with the server. If you want to use port 587 with STARTTLS,
+  // you would need to implement the STARTTLS negotiation yourself in your code before calling
+  // smtp_send_mail, which can be complex and is not currently provided by the lwIP
+  // SMTP client out of the box. For testing purposes, it's recommended to use port 465
   // with a proper TLS configuration if you want to send emails securely using the lwIP SMTP client.
 
-  if (m_smtpPort == 465) 
+  if (m_smtpPort == 465)
   {
-   m_tlsConfig = altcp_tls_create_config_client(NULL, 0);
-   if (m_tlsConfig != NULL)
-   {
-    cyw43_arch_lwip_begin();
-    smtp_set_tls_config(m_tlsConfig);
-    cyw43_arch_lwip_end();
-   } 
-  } else 
+    m_tlsConfig = altcp_tls_create_config_client(NULL, 0);
+    if (m_tlsConfig != NULL)
+    {
+      cyw43_arch_lwip_begin();
+      smtp_set_tls_config(m_tlsConfig);
+      cyw43_arch_lwip_end();
+    }
+  } else
   if (m_smtpPort == 587)
   {
-   printf("Port 587 (STARTTLS): Not supported by lwIP SMTP client.\n");
-   m_tlsConfig = NULL;
+    printf("Port 587 (STARTTLS): Not supported by lwIP SMTP client.\n");
+    m_tlsConfig = NULL;
   }
   // Configure SMTP server settings
   cyw43_arch_lwip_begin();

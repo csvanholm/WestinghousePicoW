@@ -70,7 +70,8 @@
 #define MAC_LEN (6)
 #define MAKE_IP4(a, b, c, d) ((a) << 24 | (b) << 16 | (c) << 8 | (d))
 
-typedef struct {
+typedef struct 
+{
     uint8_t op; // message opcode
     uint8_t htype; // hardware address type
     uint8_t hlen; // hardware address length
@@ -88,63 +89,71 @@ typedef struct {
     uint8_t options[312]; // optional parameters, variable, starts with magic
 } dhcp_msg_t;
 
-static int dhcp_socket_new_dgram(struct udp_pcb **udp, void *cb_data, udp_recv_fn cb_udp_recv) {
+static int dhcp_socket_new_dgram(struct udp_pcb **udp, void *cb_data, udp_recv_fn cb_udp_recv) 
+{
     // family is AF_INET
     // type is SOCK_DGRAM
-
     *udp = udp_new();
-    if (*udp == NULL) {
+    if (*udp == NULL) 
+    {
         return -ENOMEM;
     }
-
     // Register callback
     udp_recv(*udp, cb_udp_recv, (void *)cb_data);
-
     return 0; // success
 }
 
-static void dhcp_socket_free(struct udp_pcb **udp) {
-    if (*udp != NULL) {
+static void dhcp_socket_free(struct udp_pcb **udp) 
+{
+    if (*udp != NULL) 
+    {
         udp_remove(*udp);
         *udp = NULL;
     }
 }
 
-static int dhcp_socket_bind(struct udp_pcb **udp, uint32_t ip, uint16_t port) {
+static int dhcp_socket_bind(struct udp_pcb **udp, uint32_t ip, uint16_t port) 
+{
     ip_addr_t addr;
     IP4_ADDR(&addr, ip >> 24 & 0xff, ip >> 16 & 0xff, ip >> 8 & 0xff, ip & 0xff);
     // TODO convert lwIP errors to errno
     return udp_bind(*udp, &addr, port);
 }
 
-static int dhcp_socket_sendto(struct udp_pcb **udp, const void *buf, size_t len, uint32_t ip, uint16_t port) {
-    if (len > 0xffff) {
+static int dhcp_socket_sendto(struct udp_pcb **udp, const void *buf, size_t len, uint32_t ip, uint16_t port) 
+{
+    if (len > 0xffff) 
+    {
         len = 0xffff;
     }
 
     struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
-    if (p == NULL) {
+    if (p == NULL) 
+    {
         return -ENOMEM;
     }
 
     memcpy(p->payload, buf, len);
-
     ip_addr_t dest;
     IP4_ADDR(&dest, ip >> 24 & 0xff, ip >> 16 & 0xff, ip >> 8 & 0xff, ip & 0xff);
     err_t err = udp_sendto(*udp, p, &dest, port);
 
     pbuf_free(p);
 
-    if (err != ERR_OK) {
+    if (err != ERR_OK) 
+    {
         return err;
     }
 
     return len;
 }
 
-static uint8_t *opt_find(uint8_t *opt, uint8_t cmd) {
-    for (int i = 0; i < 308 && opt[i] != DHCP_OPT_END;) {
-        if (opt[i] == cmd) {
+static uint8_t *opt_find(uint8_t *opt, uint8_t cmd) 
+{
+    for (int i = 0; i < 308 && opt[i] != DHCP_OPT_END;) 
+    {
+        if (opt[i] == cmd) 
+        {
             return &opt[i];
         }
         i += 2 + opt[i + 1];
@@ -152,7 +161,8 @@ static uint8_t *opt_find(uint8_t *opt, uint8_t cmd) {
     return NULL;
 }
 
-static void opt_write_n(uint8_t **opt, uint8_t cmd, size_t n, void *data) {
+static void opt_write_n(uint8_t **opt, uint8_t cmd, size_t n, void *data) 
+{
     uint8_t *o = *opt;
     *o++ = cmd;
     *o++ = n;
@@ -160,7 +170,8 @@ static void opt_write_n(uint8_t **opt, uint8_t cmd, size_t n, void *data) {
     *opt = o + n;
 }
 
-static void opt_write_u8(uint8_t **opt, uint8_t cmd, uint8_t val) {
+static void opt_write_u8(uint8_t **opt, uint8_t cmd, uint8_t val) 
+{
     uint8_t *o = *opt;
     *o++ = cmd;
     *o++ = 1;
@@ -168,7 +179,8 @@ static void opt_write_u8(uint8_t **opt, uint8_t cmd, uint8_t val) {
     *opt = o;
 }
 
-static void opt_write_u32(uint8_t **opt, uint8_t cmd, uint32_t val) {
+static void opt_write_u32(uint8_t **opt, uint8_t cmd, uint32_t val) 
+{
     uint8_t *o = *opt;
     *o++ = cmd;
     *o++ = 4;
@@ -179,7 +191,8 @@ static void opt_write_u32(uint8_t **opt, uint8_t cmd, uint32_t val) {
     *opt = o;
 }
 
-static void dhcp_server_process(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *src_addr, u16_t src_port) {
+static void dhcp_server_process(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *src_addr, u16_t src_port) 
+{
     dhcp_server_t *d = (dhcp_server_t *)arg;
     (void)upcb;
     (void)src_addr;
@@ -191,12 +204,14 @@ static void dhcp_server_process(void *arg, struct udp_pcb *upcb, struct pbuf *p,
     size_t len;
 
     #define DHCP_MIN_SIZE (240 + 3)
-    if (p->tot_len < DHCP_MIN_SIZE) {
+    if (p->tot_len < DHCP_MIN_SIZE) 
+    {
         goto ignore_request;
     }
 
     len = pbuf_copy_partial(p, &dhcp_msg, sizeof(dhcp_msg), 0);
-    if (len < DHCP_MIN_SIZE) {
+    if (len < DHCP_MIN_SIZE) 
+    {
         goto ignore_request;
     }
 
@@ -206,30 +221,38 @@ static void dhcp_server_process(void *arg, struct udp_pcb *upcb, struct pbuf *p,
     opt = (uint8_t *)&dhcp_msg.options;
     opt += 4; // assume magic cookie: 99, 130, 83, 99
 
-    switch (opt[2]) {
-        case DHCPDISCOVER: {
+    switch (opt[2]) 
+    {
+        case DHCPDISCOVER: 
+        {
             int yi = DHCPS_MAX_IP;
-            for (int i = 0; i < DHCPS_MAX_IP; ++i) {
-                if (memcmp(d->lease[i].mac, dhcp_msg.chaddr, MAC_LEN) == 0) {
+            for (int i = 0; i < DHCPS_MAX_IP; ++i) 
+            {
+                if (memcmp(d->lease[i].mac, dhcp_msg.chaddr, MAC_LEN) == 0) 
+                {
                     // MAC match, use this IP address
                     yi = i;
                     break;
                 }
-                if (yi == DHCPS_MAX_IP) {
+                if (yi == DHCPS_MAX_IP) 
+                {
                     // Look for a free IP address
-                    if (memcmp(d->lease[i].mac, "\x00\x00\x00\x00\x00\x00", MAC_LEN) == 0) {
+                    if (memcmp(d->lease[i].mac, "\x00\x00\x00\x00\x00\x00", MAC_LEN) == 0) 
+                    {
                         // IP available
                         yi = i;
                     }
                     uint32_t expiry = d->lease[i].expiry << 16 | 0xffff;
-                    if ((int32_t)(expiry - cyw43_hal_ticks_ms()) < 0) {
+                    if ((int32_t)(expiry - cyw43_hal_ticks_ms()) < 0) 
+                    {
                         // IP expired, reuse it
                         memset(d->lease[i].mac, 0, MAC_LEN);
                         yi = i;
                     }
                 }
             }
-            if (yi == DHCPS_MAX_IP) {
+            if (yi == DHCPS_MAX_IP) 
+            {
                 // No more IP addresses left
                 goto ignore_request;
             }
@@ -238,27 +261,35 @@ static void dhcp_server_process(void *arg, struct udp_pcb *upcb, struct pbuf *p,
             break;
         }
 
-        case DHCPREQUEST: {
+        case DHCPREQUEST:
+        {
             uint8_t *o = opt_find(opt, DHCP_OPT_REQUESTED_IP);
-            if (o == NULL) {
+            if (o == NULL) 
+            {
                 // Should be NACK
                 goto ignore_request;
             }
-            if (memcmp(o + 2, &d->ip.addr, 3) != 0) {
+            if (memcmp(o + 2, &d->ip.addr, 3) != 0) 
+            {
                 // Should be NACK
                 goto ignore_request;
             }
             uint8_t yi = o[5] - DHCPS_BASE_IP;
-            if (yi >= DHCPS_MAX_IP) {
+            if (yi >= DHCPS_MAX_IP) 
+            {
                 // Should be NACK
                 goto ignore_request;
             }
-            if (memcmp(d->lease[yi].mac, dhcp_msg.chaddr, MAC_LEN) == 0) {
+            if (memcmp(d->lease[yi].mac, dhcp_msg.chaddr, MAC_LEN) == 0) 
+            {
                 // MAC match, ok to use this IP address
-            } else if (memcmp(d->lease[yi].mac, "\x00\x00\x00\x00\x00\x00", MAC_LEN) == 0) {
+            } else
+            if (memcmp(d->lease[yi].mac, "\x00\x00\x00\x00\x00\x00", MAC_LEN) == 0)
+            {
                 // IP unused, ok to use this IP address
                 memcpy(d->lease[yi].mac, dhcp_msg.chaddr, MAC_LEN);
-            } else {
+            } else
+            {
                 // IP already in use
                 // Should be NACK
                 goto ignore_request;
@@ -288,16 +319,19 @@ ignore_request:
     pbuf_free(p);
 }
 
-void dhcp_server_init(dhcp_server_t *d, ip_addr_t *ip, ip_addr_t *nm) {
+void dhcp_server_init(dhcp_server_t *d, ip_addr_t *ip, ip_addr_t *nm) 
+{
     ip_addr_copy(d->ip, *ip);
     ip_addr_copy(d->nm, *nm);
     memset(d->lease, 0, sizeof(d->lease));
-    if (dhcp_socket_new_dgram(&d->udp, d, dhcp_server_process) != 0) {
-        return;
+    if (dhcp_socket_new_dgram(&d->udp, d, dhcp_server_process) != 0) 
+    {
+      return;
     }
     dhcp_socket_bind(&d->udp, 0, PORT_DHCP_SERVER);
 }
 
-void dhcp_server_deinit(dhcp_server_t *d) {
+void dhcp_server_deinit(dhcp_server_t *d) 
+{
     dhcp_socket_free(&d->udp);
 }
