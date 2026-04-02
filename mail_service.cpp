@@ -2075,6 +2075,35 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
   smtp_set_server_port(m_smtpPort);
   smtp_set_auth(m_senderEmail, m_senderPassword);
   cyw43_arch_lwip_end();
+
+  // Pre-warm the DNS cache for the SMTP server so the first email send does not stall
+  // on a cold DNS lookup.  The resolution runs in the background while NTP syncs, so
+  // the result is typically cached by the time the first email is queued.
+  if ((g_dnsQueryState != DnsQueryState::Waiting) && (m_smtpServer[0] != '\0'))
+  {
+    ip_addr_t prewarm_ip;
+    m_isDnsResolved.store(false);
+    g_dnsQueryState   = DnsQueryState::Waiting;
+    g_dnsQueryStartMs = to_ms_since_boot(get_absolute_time());
+    cyw43_arch_lwip_begin();
+    err_t prewarm = dns_gethostbyname(m_smtpServer, &prewarm_ip, PicoMail::dns_callback, NULL);
+    cyw43_arch_lwip_end();
+    if (prewarm == ERR_OK)
+    {
+      printf("[SMTP] DNS pre-warm: %s cached as %s\n", m_smtpServer, ipaddr_ntoa(&prewarm_ip));
+      m_isDnsResolved.store(true);
+      g_dnsQueryState = DnsQueryState::Completed;
+    } else
+    if (prewarm == ERR_INPROGRESS)
+    {
+      printf("[SMTP] DNS pre-warm started for %s\n", m_smtpServer);
+    } else
+    {
+      printf("[SMTP] DNS pre-warm failed to start (%d). Will retry at first send.\n", prewarm);
+      g_dnsQueryState = DnsQueryState::Idle;
+    }
+  }
+
   if (m_outboxCount > 0)
   {
     printf("Attempting to flush %u queued email(s) after connect...\n", m_outboxCount);
