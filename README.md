@@ -58,7 +58,7 @@ Wi-Fi and SMTP credentials are configured at runtime through the Pico W setup po
 
 1. Boot into setup mode (short GPIO22 to Ground at boot for minimum of 3 seconds).
    The onboard LED will blink fast when you are in setup mode.
-2. Connect to SSID `westinghouse_config`.
+2. Connect to SSID `WESTINGHOUSE_CONFIG`.
 3. Browse to `http://192.168.0.1` and save Wi-Fi/SMTP settings.
 
 Credentials are stored in device flash and are no longer configured via CMake.

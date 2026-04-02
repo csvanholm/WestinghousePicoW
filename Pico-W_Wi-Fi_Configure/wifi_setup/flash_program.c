@@ -50,22 +50,18 @@ void show_stats()
 
     extern char __flash_binary_end;
     uintptr_t program_end = ((uintptr_t)&__flash_binary_end - XIP_BASE);
-    uint16_t progsizekB = (program_end / 1024) +
-                (program_end % 1024 ? 1 : 0);
-    uint16_t progsizeSec = (program_end / FLASH_SECTOR_SIZE) +
-                (program_end % FLASH_SECTOR_SIZE ? 1 : 0);
+    uint16_t progsizekB = (program_end / 1024) + (program_end % 1024 ? 1 : 0);
+    uint16_t progsizeSec = (program_end / FLASH_SECTOR_SIZE) + (program_end % FLASH_SECTOR_SIZE ? 1 : 0);
 
-                printf("\tUsed by this programm: %d kB, %d Sectors (@ %d kB)\n\n",
-                       progsizekB, progsizeSec, FLASH_SECTOR_SIZE / 1024);
+    printf("\tUsed by this programm: %d kB, %d Sectors (@ %d kB)\n\n",progsizekB, progsizeSec, FLASH_SECTOR_SIZE / 1024);
 }
 
 void flash_erase_page(size_t pageStart, size_t numPages)
 {
     uint8_t *buf;
-
     // We can only erase a whole sector, which has 16 pages
     // So we read the sector (all 16 pages) first and save it
-    buf = (uint8_t *)malloc(FLASH_SECTOR_SIZE);
+    buf = (uint8_t *) malloc(FLASH_SECTOR_SIZE);
     if (!buf)
         DEBUG_printf("malloc failed\n");
     memcpy(buf, flash_target_contents, FLASH_SECTOR_SIZE);
@@ -78,11 +74,9 @@ void flash_erase_page(size_t pageStart, size_t numPages)
     {
         buf[(pageStart * FLASH_PAGE_SIZE) + i] = 0xFF;
     }
-
     //and write it back to the flash
     flash_range_program(FLASH_TARGET_OFFSET, buf, FLASH_SECTOR_SIZE);
     restore_interrupts(interrupts);
-
     free(buf);
 }
 
@@ -95,14 +89,14 @@ void flash_write_page(uint8_t *data, uint16_t buf_len, size_t pageStart)
 
     numPages = (buf_len / FLASH_PAGE_SIZE) + (buf_len % FLASH_PAGE_SIZE ? 1 : 0);
 
-
     buf = (uint8_t *)malloc(FLASH_PAGE_SIZE * numPages);
     memset(buf, 0XFF, (FLASH_PAGE_SIZE * numPages));
     memcpy((void *)buf, data, buf_len);
 
     flash_erase_page(pageStart, numPages);
 
-    uint32_t interrupts = save_and_disable_interrupts();        flash_range_program(FLASH_TARGET_OFFSET + (FLASH_PAGE_SIZE * pageStart),
+    uint32_t interrupts = save_and_disable_interrupts();        
+    flash_range_program(FLASH_TARGET_OFFSET + (FLASH_PAGE_SIZE * pageStart),
                         buf, FLASH_PAGE_SIZE * numPages);
     restore_interrupts(interrupts);
     free(buf);
@@ -110,8 +104,6 @@ void flash_write_page(uint8_t *data, uint16_t buf_len, size_t pageStart)
 
 void flash_read(uint8_t *data,uint16_t len, size_t pageStart)
 {
-    memcpy((void *)data,
-           flash_target_contents + (FLASH_PAGE_SIZE * pageStart),
-           len);
+    memcpy((void *)data,flash_target_contents + (FLASH_PAGE_SIZE * pageStart),len);
 }
 

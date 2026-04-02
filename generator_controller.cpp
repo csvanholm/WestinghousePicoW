@@ -16,15 +16,15 @@ extern "C"
 
 namespace
 {
- const uint GENERATOR_RUNNING = 14;
- const uint LINE_POWER_FAIL = 16;
- const uint START_STOP_RELAY = 18;
- const uint USE_WEEKLY_EXERCISER = 5;
+ const uint GENERATOR_RUNNING    = 14;  // gpio 14 on the Pico, which is the "Gen Running" input from the generator control board
+ const uint LINE_POWER_FAIL      = 16;  // gpio 16 on the Pico, which is the "Line Power Fail" input from the generator control board
+ const uint START_STOP_RELAY     = 18;  // gpio 18 on the Pico, which is the "Start/Stop Relay" output to the generator control board
+ const uint USE_WEEKLY_EXERCISER = 5;   // gpio 5 on the Pico, which is the "Use Weekly Exerciser" input from the generator control board
 
- const uint LED_BLUE = 15;
- const uint LED_RED = 11;
- const uint LED_YELLOW = 9;
- const uint LED_WHITE = 7;
+ const uint LED_BLUE   = 15;  // gpio 15 on the Pico, which is the "Blue LED" output
+ const uint LED_RED    = 11;  // gpio 11 on the Pico, which is the "Red LED" output
+ const uint LED_YELLOW = 9;   // gpio 9 on the Pico, which is the "Yellow LED" output
+ const uint LED_WHITE  = 7;   // gpio 7 on the Pico, which is the "White LED" output
 
  static void DelayMs(uint32_t delayMs)
  {

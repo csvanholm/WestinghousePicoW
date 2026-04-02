@@ -33,7 +33,7 @@
         }
 
         .page {
-            max-width: 880px;
+            max-width: 580px;
             margin: 0 auto;
             background: var(--panel);
             border: 1px solid var(--line);

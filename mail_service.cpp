@@ -249,8 +249,10 @@ static void EnsureDnsServersConfigured(const char *reason)
   char dns2Text[IPADDR_STRLEN_MAX] = {0};
   ipaddr_ntoa_r(dns1, dns1Text, sizeof(dns1Text));
   ipaddr_ntoa_r(dns2, dns2Text, sizeof(dns2Text));
-
-  if (dns1Unset && dns2Unset)
+  // switch to known public DNS if DHCP did not provide any DNS servers. 
+  // If only one DNS server is provided, keep it since some networks use a single DNS 
+  // and we don't want to override it with a potentially non-functional public DNS.  
+  if (dns1Unset && dns2Unset) 
   {
     printf("[SMTP] DNS fallback (%s): dns1=%s dns2=%s. Applying 8.8.8.8/1.1.1.1\n",
            (reason != NULL) ? reason : "unspecified",
