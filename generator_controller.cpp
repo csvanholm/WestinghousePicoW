@@ -3,6 +3,9 @@
 #include "generator_controller.h"
 
 #include "pico/stdlib.h"
+#include "pico/cyw43_arch.h"
+
+extern bool is_wifi_stack_initialized();
 
 extern "C" 
 {
@@ -26,6 +29,10 @@ namespace
  const uint LED_YELLOW = 9;   // gpio 9 on the Pico, which is the "Yellow LED" output
  const uint LED_WHITE  = 7;   // gpio 7 on the Pico, which is the "White LED" output
 
+ /**
+  * @brief Delay helper that uses RTOS sleep when scheduler is running.
+  * @param delayMs Delay duration in milliseconds.
+  */
  static void DelayMs(uint32_t delayMs)
  {
    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
@@ -36,11 +43,36 @@ namespace
      sleep_ms(delayMs);
    }
  }
+
+#ifdef _PICO_W
+ const uint ONBOARD_LED_PIN = 0;
+#else
+ const uint ONBOARD_LED_PIN = 25;
+#endif
+
+ /**
+  * @brief Generates a short heartbeat pulse on the board LED.
+  */
+ static void PulseOnboardLed()
+ {
+#ifdef _PICO_W
+   if (is_wifi_stack_initialized())
+   {
+     cyw43_arch_gpio_put(ONBOARD_LED_PIN, 1);
+     DelayMs(5);
+     cyw43_arch_gpio_put(ONBOARD_LED_PIN, 0);
+   }
+#else
+   gpio_put(ONBOARD_LED_PIN, 1);
+   DelayMs(5);
+   gpio_put(ONBOARD_LED_PIN, 0);
+#endif
+ }
 }
 
 
-Generator::Generator(EventSinkFn eventSinkFn, void *eventSinkContext, HeartbeatFn heartbeatFn)
-    : m_eventSinkFn(eventSinkFn), m_eventSinkContext(eventSinkContext), m_heartbeatFn(heartbeatFn)
+Generator::Generator(EventSinkFn eventSinkFn, void *eventSinkContext)
+    : m_eventSinkFn(eventSinkFn), m_eventSinkContext(eventSinkContext)
 {
   InitIoPins();
 }
@@ -61,7 +93,7 @@ void Generator::PublishEvent(GeneratorEvent eventCode)
     m_droppedEvents++;
     if ((m_droppedEvents & 0x0Fu) == 1u)
     {
-      printf("Generator event queue full; dropped=%lu\n", (unsigned long)m_droppedEvents);
+      printf("Generator event queue full; dropped=%lu\n", (unsigned long) m_droppedEvents);
     }
   }
 }
@@ -101,10 +133,7 @@ void Generator::Led(uint id, bool state)
 
 void Generator::AliveBlink()
 {
-  if (m_heartbeatFn != nullptr)
-  {
-    m_heartbeatFn();
-  }
+  PulseOnboardLed();
 
   if (m_coolDownCounter > 0)
   {
@@ -133,6 +162,8 @@ void Generator::AliveBlink()
 
 void Generator::BlinkFailure()
 {
+  PulseOnboardLed();
+
   bool state = true;
   for (int i = 0; i < 10; ++i)
   {
@@ -142,11 +173,6 @@ void Generator::BlinkFailure()
     Led(LED_WHITE, state);
     DelayMs(40);
     state = !state;
-  }
-
-  if (m_heartbeatFn != nullptr)
-  {
-    m_heartbeatFn();
   }
 }
 
@@ -231,7 +257,7 @@ void Generator::ReadInputs()
   const bool generatorRunningNow = !gpio_get(GENERATOR_RUNNING);
   if (generatorRunningNow != m_generatorRunning)
   {
-    if (m_generatorPowerStable > kGeneratorRunningDebounceTicks)
+    if (m_generatorPowerStable >= kGeneratorRunningDebounceTicks)
     {
       m_generatorRunning = generatorRunningNow;
       if (m_generatorRunning)

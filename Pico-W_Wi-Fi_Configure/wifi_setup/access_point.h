@@ -20,11 +20,11 @@
  */
 #define AP_SSID     "WESTINGHOUSE_CONFIG"
 //#define AP_PASSWD "my secret" // define, if you want a password
-#define MAGIC       0xCAFF      // used to check if the flash contains valid data
-#define LEGACY_MAGIC 0xCAFE     // previous config schema magic
-#define CONFIG_VERSION 3
-#define SETUP_GPIO  22          // pull this GPIO to GND to force the steup mode
-#define SETUP_DELAY 3           // duration for wich SETUP_GPIO must be held low
+#define MAGIC          0xCAFF      // used to check if the flash contains valid data
+#define LEGACY_MAGIC   0xCAFE     // previous config schema magic
+#define CONFIG_VERSION 1
+#define SETUP_GPIO     22          // pull this GPIO to GND to force the steup mode
+#define SETUP_DELAY    3           // duration for wich SETUP_GPIO must be held low
 
 #define DEBUG   // Uncomment for debug output
 
@@ -47,7 +47,8 @@
 #define SETUP_TOKEN_MAX_LEN 31
 
 
-typedef struct _config {
+typedef struct _config 
+{
     uint16_t magic;
     uint16_t version;
     char     ssid[SSID_MAX_LEN + 1];

@@ -51,11 +51,6 @@ class Generator
 {
 public:
   /**
-   * @brief Optional heartbeat callback invoked once per controller tick.
-   */
-  using HeartbeatFn = void (*)();
-
-  /**
    * @brief Event sink callback used to export generator events.
    * @param context Caller-provided sink context.
    * @param message Event payload to deliver.
@@ -67,9 +62,8 @@ public:
    * @brief Constructs the generator controller.
    * @param eventSinkFn Callback used to publish generator events.
    * @param eventSinkContext Context pointer passed back to the event sink.
-   * @param heartbeatFn Optional callback used for a simple alive pulse.
    */
-  Generator(EventSinkFn eventSinkFn, void *eventSinkContext, HeartbeatFn heartbeatFn);
+  Generator(EventSinkFn eventSinkFn, void *eventSinkContext);
 
   /**
    * @brief Returns the number of controller ticks since startup.
@@ -93,7 +87,6 @@ private:
 
   EventSinkFn m_eventSinkFn;
   void *m_eventSinkContext;
-  HeartbeatFn m_heartbeatFn;
   uint32_t m_droppedEvents = 0;
 
   uint64_t m_ticksSinceStart = 0;
@@ -108,13 +101,47 @@ private:
   uint m_generatorPowerStable = 0;
   uint m_genPowerRequestedStable = 0;
 
+  /**
+   * @brief Drives the start relay for a fixed pulse width.
+   */
   void PulseStartButton();
+
+  /**
+   * @brief Drives the stop relay for a fixed pulse width.
+   */
   void PulseStopButton();
+
+  /**
+   * @brief Updates activity/status LEDs once per controller tick.
+   */
   void AliveBlink();
+
+  /**
+   * @brief Configures all GPIO inputs/outputs used by the controller.
+   */
   void InitIoPins();
+
+  /**
+   * @brief Samples and debounces hardware inputs, publishing edge events.
+   */
   void ReadInputs();
+
+  /**
+   * @brief Applies target LED state respecting hardware build mode.
+   * @param id GPIO number for the LED.
+   * @param state Desired LED logical state.
+   */
   void Led(uint id, bool state);
+
+  /**
+   * @brief Repeating failure blink pattern used after exhausted start retries.
+   */
   void BlinkFailure();
+
+  /**
+   * @brief Checks whether weekly exercise run window is currently active.
+   * @return true when an exercise run should be forced this tick.
+   */
   bool ShouldExerciseNow();
 
   /**

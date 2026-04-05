@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+/* Forward declaration avoids pulling Pico SDK headers into FreeRTOSConfig.h. */
+uint64_t time_us_64(void);
+
 #if PICO_RP2040
 #define configCPU_CLOCK_HZ                         ( ( uint32_t ) 125000000 )
 #else
@@ -57,6 +60,16 @@ extern "C" {
 
 #define configUSE_TRACE_FACILITY                   1
 #define configUSE_STATS_FORMATTING_FUNCTIONS       1
+#define configGENERATE_RUN_TIME_STATS              1
+
+/*
+ * Runtime stats counter source:
+ * - Uses the SDK's 1 MHz free-running timer (1 us resolution)
+ * - Scheduler tick is 1 kHz, so this is 1000x faster than the tick source
+ * - No extra hardware timer setup required, minimizing resource impact
+ */
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()   do { } while(0)
+#define portGET_RUN_TIME_COUNTER_VALUE()           ( ( uint32_t ) time_us_64() )
 
 #if PICO_RP2350
 #define configENABLE_MPU                           0

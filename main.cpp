@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-
+#include "hardware/watchdog.h"
 #include "mail_service.h"
 #include "generator_controller.h"
 
@@ -65,23 +65,12 @@ static void init_onboard_led()
 #endif
 }
 
-static void pulse_onboard_led()
-{
 #ifdef _PICO_W
-  if (is_wifi_stack_initialized())
-  {
-    cyw43_arch_gpio_put(LED_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(5));
-    cyw43_arch_gpio_put(LED_PIN, 0);
-  }
-#else
-  gpio_put(LED_PIN, 1);
-  vTaskDelay(pdMS_TO_TICKS(5));
-  gpio_put(LED_PIN, 0);
-#endif
-}
-
-#ifdef _PICO_W
+/**
+ * @brief Normalizes flash-backed C strings to safe null-terminated values.
+ * @param buffer Mutable flash field buffer.
+ * @param length Buffer size in bytes.
+ */
 static void sanitize_flash_string(char *buffer, size_t length)
 {
   if ((buffer == NULL) || (length == 0))
@@ -110,6 +99,11 @@ static void sanitize_flash_string(char *buffer, size_t length)
   }
 }
 
+/**
+ * @brief Checks whether a flash-backed string is unset or erased.
+ * @param value String pointer to test.
+ * @return true when value is empty or starts with erased flash pattern.
+ */
 static bool is_unset_flash_string(const char *value)
 {
   return (value == NULL) || (value[0] == '\0') || (static_cast<uint8_t>(value[0]) == 0xFFu);
@@ -153,6 +147,11 @@ static void apply_runtime_mail_defaults(config *wifiConfig)
   }
 }
 
+/**
+ * @brief Upgrades legacy flash config records to the current schema.
+ * @param wifiConfig Mutable runtime configuration object.
+ * @return true when a migration was performed; otherwise false.
+ */
 static bool migrate_legacy_config(config *wifiConfig)
 {
   if (wifiConfig == NULL)
@@ -171,6 +170,10 @@ static bool migrate_legacy_config(config *wifiConfig)
   return true;
 }
 
+/**
+ * @brief Loads, migrates, and validates runtime Wi-Fi/mail configuration.
+ * @param wifiConfig Destination config structure persisted in flash.
+ */
 static void ensure_runtime_wifi_config(config *wifiConfig)
 {
   if (wifiConfig == NULL)
@@ -242,12 +245,13 @@ static void handle_serial_command(int ch, PicoMail *mail)
     case 'h':
     case 'H':
     case '?':
-      printf("[CMD] Commands: s=status, n=force NTP sync, h=help\n");
+      printf("[CMD] Commands: s=status, n=NTP sync, r=reboot, h=help\n");
       break;
    
-    case 'm':
-    case 'M': 
-      printf("[CMD] You pressed m or M\n");   
+    case 'r':
+    case 'R': 
+      printf("[CMD] Rebooting...\n");
+       watchdog_reboot(0, 0, 0);
       break;
     
       default:
@@ -278,7 +282,7 @@ static bool queue_event_sink(void *context, const GeneratorEventMessage &message
 static void generator_task(void *param)
 {
   QueueHandle_t eventQueue = static_cast<QueueHandle_t>(param);
-  Generator generator(queue_event_sink, eventQueue, pulse_onboard_led);
+  Generator generator(queue_event_sink, eventQueue);
   while (true)
   {
     generator.RunOneTick();
@@ -405,7 +409,7 @@ static void mail_task(void *param)
 static void console_task(void *param)
 {
   PicoMail *mail = static_cast<PicoMail *>(param);
-  printf("[CMD] Commands: s=status, n=force NTP sync, h=help\n");
+  printf("[CMD] Commands: s=status, n=NTP sync, r=reboot, h=help\n");
 
   while (true)
   {
@@ -484,6 +488,10 @@ int main()
     return -1;
   }
 
+#if (configQUEUE_REGISTRY_SIZE > 0)
+  vQueueAddToRegistry(g_generatorEventQueue, "GenEventQ");
+#endif
+
   if (xTaskCreate(generator_task, "Generator", 1024, g_generatorEventQueue, kGeneratorTaskPriority, NULL) != pdPASS)
   {
     printf("Failed to create generator task.\n");
@@ -501,7 +509,7 @@ int main()
     printf("Failed to create console task.\n");
     return -1;
   }
-
+  printf("[RTOS] Tasks created, starting scheduler...\n");
   vTaskStartScheduler();
   printf("Scheduler exited unexpectedly.\n");
   return -1;

@@ -56,11 +56,15 @@ critical_section_t PicoMail::m_outboxLock;
 bool PicoMail::m_outboxLockInitialized = false;
 uint32_t PicoMail::m_sendTimeoutMs = 30000;
 static std::atomic<bool> g_ntpSynced(false);
-static volatile bool g_sntpRunning = false;
-static volatile bool g_cyw43ArchInitialized = false;
+static std::atomic<bool> g_sntpRunning(false);
+static std::atomic<bool> g_cyw43ArchInitialized(false);
 static const char *LwipErrToString(err_t err);
 static int get_local_time(char *time, size_t timeSize, char *date, size_t dateSize);
 
+/**
+ * @brief Delays for the requested time using RTOS delay when available.
+ * @param delayMs Delay duration in milliseconds.
+ */
 static void MailDelayMs(uint32_t delayMs)
 {
   if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
@@ -95,12 +99,18 @@ enum class DnsQueryState
   TimedOut
 };
 
-static DnsQueryState g_dnsQueryState = DnsQueryState::Idle;
+static std::atomic<DnsQueryState> g_dnsQueryState(DnsQueryState::Idle);
 static uint32_t g_dnsQueryStartMs = 0;
 static uint32_t g_dnsQueryTimeoutMs = 10000;
 static char g_lastConfiguredSmtpHost[64] = {};
 static char g_lastConfiguredSender[64] = {};
 
+/**
+ * @brief Case-insensitive suffix test for ASCII strings.
+ * @param text Full text to inspect.
+ * @param suffix Suffix candidate.
+ * @return true when @p text ends with @p suffix; otherwise false.
+ */
 static bool ends_with_case_insensitive(const char *text, const char *suffix)
 {
   if ((text == NULL) || (suffix == NULL))
@@ -137,6 +147,12 @@ static bool ends_with_case_insensitive(const char *text, const char *suffix)
   return true;
 }
 
+/**
+ * @brief Case-insensitive substring search for ASCII strings.
+ * @param text Text to search.
+ * @param needle Substring to locate.
+ * @return true when @p needle appears in @p text; otherwise false.
+ */
 static bool contains_case_insensitive(const char *text, const char *needle)
 {
   if ((text == NULL) || (needle == NULL) || (needle[0] == '\0'))
@@ -181,6 +197,11 @@ static bool contains_case_insensitive(const char *text, const char *needle)
   return false;
 }
 
+/**
+ * @brief Validates that a DNS server entry contains a usable non-zero address.
+ * @param dns DNS server address returned by lwIP.
+ * @return true when the server appears usable; otherwise false.
+ */
 static bool IsDnsServerUsable(const ip_addr_t *dns)
 {
   if (dns == NULL)
@@ -200,6 +221,11 @@ static bool IsDnsServerUsable(const ip_addr_t *dns)
   return true;
 }
 
+/**
+ * @brief Converts DNS preflight state enum values into readable text.
+ * @param state DNS query state.
+ * @return Constant string describing @p state.
+ */
 static const char *DnsQueryStateToString(DnsQueryState state)
 {
   switch (state)
@@ -219,6 +245,10 @@ static const char *DnsQueryStateToString(DnsQueryState state)
   }
 }
 
+/**
+ * @brief Prints current DNS server state for SMTP troubleshooting.
+ * @param context Optional diagnostic context label.
+ */
 static void PrintDnsServerDiagnostics(const char *context)
 {
   cyw43_arch_lwip_begin();
@@ -233,10 +263,14 @@ static void PrintDnsServerDiagnostics(const char *context)
          g_lastConfiguredSmtpHost[0] != '\0' ? g_lastConfiguredSmtpHost : "<unset>",
          dns1Text,
          dns2Text,
-         DnsQueryStateToString(g_dnsQueryState));
+      DnsQueryStateToString(g_dnsQueryState.load()));
   cyw43_arch_lwip_end();
 }
 
+/**
+ * @brief Applies public DNS fallback only when DHCP leaves both slots unusable.
+ * @param reason Textual reason printed in diagnostics.
+ */
 static void EnsureDnsServersConfigured(const char *reason)
 {
   cyw43_arch_lwip_begin();
@@ -286,6 +320,11 @@ static void EnsureDnsServersConfigured(const char *reason)
   cyw43_arch_lwip_end();
 }
 
+/**
+ * @brief Waits for DHCP to provide both gateway and at least one DNS server.
+ * @param timeoutMs Maximum wait duration in milliseconds.
+ * @return true when gateway and DNS become available before timeout.
+ */
 static bool WaitForDhcpDetails(uint32_t timeoutMs)
 {
   const uint32_t startMs = to_ms_since_boot(get_absolute_time());
@@ -376,14 +415,14 @@ static void PrintSmtpFieldDiagnostics(const char *name, const char *value)
  */
 static void stop_ntp_client()
 {
-  if (!g_sntpRunning)
+  if (!g_sntpRunning.load())
   {
     return;
   }
   cyw43_arch_lwip_begin();
   sntp_stop();
   cyw43_arch_lwip_end();
-  g_sntpRunning = false;
+  g_sntpRunning.store(false);
 }
 
 // Static member definitions
@@ -407,14 +446,7 @@ PicoMail::PicoMail() : m_tlsConfig(NULL)
   PicoMail::m_lastSmtpResult.store(0);
   PicoMail::m_lastSmtpSrvErr.store(0);
   PicoMail::m_lastSmtpErr.store((int16_t)ERR_OK);
-  /*
-  SafeCopy(m_smtpServer, sizeof(m_smtpServer), SMTP_SERVER);
-  SafeCopy(m_senderEmail, sizeof(m_senderEmail), SENDER_EMAIL);
-  SafeCopy(m_senderPassword, sizeof(m_senderPassword), SENDER_PASSWORD);
-  SafeCopy(m_recipientEmail, sizeof(m_recipientEmail), RECIPIENT_EMAIL);
-  m_smtpPort = (uint16_t)SMTP_PORT;
-  */
-  }
+}
 
 PicoMail::~PicoMail()
 {
@@ -549,6 +581,11 @@ void init_platform_clock()
 #endif
 }
 
+/**
+ * @brief Writes UTC calendar time into the active platform clock backend.
+ * @param utc_time UTC calendar time to program.
+ * @return true on success; false on invalid input or backend failure.
+ */
 static bool set_platform_utc_time(const struct tm *utc_time)
 {
   if (utc_time == NULL)
@@ -576,6 +613,11 @@ static bool set_platform_utc_time(const struct tm *utc_time)
 #endif
 }
 
+/**
+ * @brief Reads UTC calendar time from the active platform clock backend.
+ * @param utc_time Output structure for UTC calendar time.
+ * @return true on success; false when time is unavailable.
+ */
 static bool get_platform_utc_time(struct tm *utc_time)
 {
   if (utc_time == NULL)
@@ -605,6 +647,12 @@ static bool get_platform_utc_time(struct tm *utc_time)
 #endif
 }
 
+/**
+ * @brief Converts Unix epoch seconds into UTC calendar components.
+ * @param epoch Epoch seconds.
+ * @param out_tm Output calendar structure.
+ * @return true on success; false on conversion failure.
+ */
 static bool convert_epoch_to_utc_tm(time_t epoch, struct tm *out_tm)
 {
   if (out_tm == NULL)
@@ -627,6 +675,13 @@ static bool convert_epoch_to_utc_tm(time_t epoch, struct tm *out_tm)
 #endif
 }
 
+/**
+ * @brief Calculates days since Unix epoch for a civil date.
+ * @param year Full year (e.g., 2026).
+ * @param month Month in range [1, 12].
+ * @param day Day of month in range [1, 31].
+ * @return Signed day count relative to 1970-01-01.
+ */
 static int64_t days_from_civil(int64_t year, unsigned month, unsigned day)
 {
   year -= (month <= 2) ? 1 : 0;
@@ -637,6 +692,12 @@ static int64_t days_from_civil(int64_t year, unsigned month, unsigned day)
   return era * 146097 + (int64_t)doe - 719468;
 }
 
+/**
+ * @brief Converts UTC calendar components into Unix epoch seconds.
+ * @param utc_tm UTC calendar structure.
+ * @param out_epoch Output epoch seconds.
+ * @return true on success; false on invalid input.
+ */
 static bool convert_utc_tm_to_epoch(const struct tm *utc_tm, time_t *out_epoch)
 {
   if ((utc_tm == NULL) || (out_epoch == NULL))
@@ -714,10 +775,10 @@ bool start_ntp_sync(uint32_t timeoutMs)
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
   sntp_setservername(0, "pool.ntp.org");
   sntp_init();
-  g_sntpRunning = (sntp_enabled() != 0);
+  g_sntpRunning.store(sntp_enabled() != 0);
   cyw43_arch_lwip_end();
 
-  if (!g_sntpRunning)
+  if (!g_sntpRunning.load())
   {
     printf("[NTP] SNTP failed to start (no UDP PCB available).\n");
     g_ntpSyncState.store(NtpSyncState::Failed);
@@ -728,6 +789,11 @@ bool start_ntp_sync(uint32_t timeoutMs)
   return true;
 }
 
+/**
+ * @brief Returns a short status message for the NTP synchronization state.
+ * @param state Current NTP sync state.
+ * @return Constant message string for logs and status output.
+ */
 static const char *ntp_state_message(NtpSyncState state)
 {
   switch (state)
@@ -822,7 +888,7 @@ bool is_ntp_synced()
 
 bool is_wifi_stack_initialized()
 {
-  return g_cyw43ArchInitialized;
+  return g_cyw43ArchInitialized.load();
 }
 
 void print_runtime_status(PicoMail *mail)
@@ -919,11 +985,15 @@ uint32_t getTotalHeap(void)
 struct AllocatorStats
 {
   uint32_t allocatedBytes;
-  uint32_t largestFreeBlock;
-  uint32_t freeBlocks;
+  uint32_t totalFreeBytes;
+  uint32_t freeChunkCount;
   bool available;
 };
 
+/**
+ * @brief Reads allocator statistics when supported by the C runtime.
+ * @return Snapshot of allocator usage fields and availability flag.
+ */
 static AllocatorStats ReadAllocatorStats()
 {
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__) && \
@@ -931,15 +1001,15 @@ static AllocatorStats ReadAllocatorStats()
   struct mallinfo2 info = mallinfo2();
   return {
       (uint32_t)info.uordblks,
-      (uint32_t)info.ordblks,
       (uint32_t)info.fordblks,
+      (uint32_t)info.ordblks,
       true};
 #elif defined(__NEWLIB__) || defined(__GLIBC__) || defined(__APPLE__) || defined(_WIN32)
   struct mallinfo info = mallinfo();
   return {
       (uint32_t)info.uordblks,
-      (uint32_t)info.ordblks,
       (uint32_t)info.fordblks,
+      (uint32_t)info.ordblks,
       true};
 #else
   return {0, 0, 0, false};
@@ -970,29 +1040,18 @@ void print_memory_usage()
   if (stats.available)
   {
     const uint32_t freeHeapApprox = totalHeap - stats.allocatedBytes;
-    const uint32_t totalTracked = stats.largestFreeBlock + stats.allocatedBytes;
-    const float fragmentation = (totalTracked > 0)
-                                    ? ((float)stats.largestFreeBlock / (float)totalTracked) * 100.0f
-                                    : 0.0f;
 
     printf("Total allocated: %lu bytes\n", (unsigned long)stats.allocatedBytes);
     printf("Total free (approx): %lu bytes\n", (unsigned long)freeHeapApprox);
+    printf("Total free (allocator): %lu bytes\n", (unsigned long)stats.totalFreeBytes);
     printf("Total heap size: %lu bytes\n", (unsigned long)totalHeap);
-    printf("Largest free block: %lu bytes\n", (unsigned long)stats.largestFreeBlock);
-    printf("Number of free blocks: %lu\n", (unsigned long)stats.freeBlocks);
-    printf("Number of allocated blocks: %lu\n", (unsigned long)(stats.allocatedBytes / 32));
-    printf("Fragmentation: %.2f%%\n", fragmentation);
   } else
   {
     printf("Total allocated: unavailable\n");
     printf("Total free (approx): unavailable\n");
+    printf("Total free (allocator): unavailable\n");
     printf("Total heap size: %lu bytes\n", (unsigned long)totalHeap);
-    printf("Largest free block: unavailable\n");
-    printf("Number of free blocks: unavailable\n");
-    printf("Number of allocated blocks: unavailable\n");
-    printf("Fragmentation: unavailable\n");
   }
-
   char time[32]="nosync rtc";
   char date[32]="nosync rtc";
   if (get_local_time(time, sizeof(time), date, sizeof(date))==-1)
@@ -1252,18 +1311,18 @@ int PicoMail::FlushOutbox()
     // has already set a terminal failure state: VerifyDnsAndSend treats Failed/
     // TimedOut as restartable and would immediately launch a new query, flipping
     // state back to Waiting before we can detect the failure below.
-    if (g_dnsQueryState == DnsQueryState::Waiting)
+    if (g_dnsQueryState.load() == DnsQueryState::Waiting)
     {
       VerifyDnsAndSend(m_smtpServer);
     }
 
-    if (g_dnsQueryState == DnsQueryState::Waiting)
+    if (g_dnsQueryState.load() == DnsQueryState::Waiting)
     {
       return -1;
     }
 
-    if ((g_dnsQueryState == DnsQueryState::Failed) ||
-        (g_dnsQueryState == DnsQueryState::TimedOut))
+    if ((g_dnsQueryState.load() == DnsQueryState::Failed) ||
+        (g_dnsQueryState.load() == DnsQueryState::TimedOut))
     {
       IncrementHeadRetryCount();
       EnsureDnsServersConfigured("DNS preflight wait-state failure");
@@ -1351,13 +1410,13 @@ int PicoMail::FlushOutbox()
   }
 
   VerifyDnsAndSend(m_smtpServer);
-  if (g_dnsQueryState == DnsQueryState::Waiting)
+  if (g_dnsQueryState.load() == DnsQueryState::Waiting)
   {
     m_flushState = FlushState::WaitingForDns;
     return -1;
   }
-  if ((g_dnsQueryState == DnsQueryState::Failed) ||
-      (g_dnsQueryState == DnsQueryState::TimedOut))
+  if ((g_dnsQueryState.load() == DnsQueryState::Failed) ||
+      (g_dnsQueryState.load() == DnsQueryState::TimedOut))
   {
     IncrementHeadRetryCount();
     EnsureDnsServersConfigured("dns preflight immediate failure");
@@ -1445,11 +1504,11 @@ void PicoMail::dns_callback(const char *name, const ip_addr_t *ipaddr, void *arg
   if (ipaddr)
   {
     printf("DNS Success: %s resolved to %s\n", name, ipaddr_ntoa(ipaddr));
-    g_dnsQueryState = DnsQueryState::Completed;
+    g_dnsQueryState.store(DnsQueryState::Completed);
   } else
   {
     printf("DNS Failed: Could not resolve %s\n", name);
-    g_dnsQueryState = DnsQueryState::Failed;
+    g_dnsQueryState.store(DnsQueryState::Failed);
     PrintDnsServerDiagnostics("DNS callback failure");
   }
   PicoMail::m_isDnsResolved.store(true);
@@ -1466,14 +1525,14 @@ void PicoMail::VerifyDnsAndSend(const char *hostname)
     return;
   }
   // Start a new async query when idle or after a previous terminal state.
-  if ((g_dnsQueryState == DnsQueryState::Idle) ||
-      (g_dnsQueryState == DnsQueryState::Completed) ||
-      (g_dnsQueryState == DnsQueryState::Failed) ||
-      (g_dnsQueryState == DnsQueryState::TimedOut))
+  if ((g_dnsQueryState.load() == DnsQueryState::Idle) ||
+      (g_dnsQueryState.load() == DnsQueryState::Completed) ||
+      (g_dnsQueryState.load() == DnsQueryState::Failed) ||
+      (g_dnsQueryState.load() == DnsQueryState::TimedOut))
   {
     ip_addr_t resolved_ip;
     PicoMail::m_isDnsResolved.store(false);
-    g_dnsQueryState = DnsQueryState::Waiting;
+    g_dnsQueryState.store(DnsQueryState::Waiting);
     g_dnsQueryStartMs = to_ms_since_boot(get_absolute_time());
 
     cyw43_arch_lwip_begin();
@@ -1484,7 +1543,7 @@ void PicoMail::VerifyDnsAndSend(const char *hostname)
     {
       printf("Cached: %s is %s\n", hostname, ipaddr_ntoa(&resolved_ip));
       PicoMail::m_isDnsResolved.store(true);
-      g_dnsQueryState = DnsQueryState::Completed;
+      g_dnsQueryState.store(DnsQueryState::Completed);
       return;
     }
 
@@ -1496,18 +1555,18 @@ void PicoMail::VerifyDnsAndSend(const char *hostname)
 
     printf("Error starting DNS query: %d\n", err);
     PicoMail::m_isDnsResolved.store(true);
-    g_dnsQueryState = DnsQueryState::Failed;
+    g_dnsQueryState.store(DnsQueryState::Failed);
     return;
   }
 
-  if (g_dnsQueryState == DnsQueryState::Waiting)
+  if (g_dnsQueryState.load() == DnsQueryState::Waiting)
   {
     uint32_t elapsedMs = to_ms_since_boot(get_absolute_time()) - g_dnsQueryStartMs;
     if (elapsedMs >= g_dnsQueryTimeoutMs)
     {
       printf("DNS wait timed out for %s after %u ms\n", hostname, g_dnsQueryTimeoutMs);
       PicoMail::m_isDnsResolved.store(true);
-      g_dnsQueryState = DnsQueryState::TimedOut;
+      g_dnsQueryState.store(DnsQueryState::TimedOut);
     }
   }
 }
@@ -1799,7 +1858,7 @@ void PicoMail::CheckGatewayIpDns()
  */
 int PicoMail::InitLwip()
 {
-  if (g_cyw43ArchInitialized)
+  if (g_cyw43ArchInitialized.load())
   {
     printf("InitLwip() Error : Wi-Fi already initialized, skipping re-init.\n");
     return 0;
@@ -1813,7 +1872,7 @@ int PicoMail::InitLwip()
     printf("***Wi-Fi init failed***\n\n\n");
     return -1;
   }
-  g_cyw43ArchInitialized = true;
+  g_cyw43ArchInitialized.store(true);
   // Allow WiFi chip to stabilize after initialization
   MailDelayMs(500);
   // Needs further investigation!!!!! (not working as expected!) turn off low-power mode to improve performance and range, this will increase power consumption somewhat!
@@ -1835,7 +1894,7 @@ int PicoMail::DeInitLwip()
 {
   // Initialize the WiFi chip and attempt to connect to the network
   printf("DeInitLwIP...\n");
-  if (g_cyw43ArchInitialized)
+  if (g_cyw43ArchInitialized.load())
   {
     cyw43_arch_deinit();
   } else
@@ -1843,7 +1902,7 @@ int PicoMail::DeInitLwip()
     printf("Wi-Fi was not initialized, skipping deinit.\n");
     return -1;
   }
-  g_cyw43ArchInitialized = false;
+  g_cyw43ArchInitialized.store(false);
   return 0;
 }
 
@@ -1944,7 +2003,7 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
   if (connect_result != 0)
   {
     m_isConnected.store(false);
-    if (g_cyw43ArchInitialized)
+    if (g_cyw43ArchInitialized.load())
     {
       cyw43_arch_disable_sta_mode();
       MailDelayMs(200);
@@ -2002,7 +2061,7 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     {
       printf("Timeout waiting for IP assignment\n");
       m_isConnected.store(false);
-      if (g_cyw43ArchInitialized)
+      if (g_cyw43ArchInitialized.load())
       {
         cyw43_arch_disable_sta_mode();
         MailDelayMs(200);
@@ -2079,11 +2138,11 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
   // Pre-warm the DNS cache for the SMTP server so the first email send does not stall
   // on a cold DNS lookup.  The resolution runs in the background while NTP syncs, so
   // the result is typically cached by the time the first email is queued.
-  if ((g_dnsQueryState != DnsQueryState::Waiting) && (m_smtpServer[0] != '\0'))
+  if ((g_dnsQueryState.load() != DnsQueryState::Waiting) && (m_smtpServer[0] != '\0'))
   {
     ip_addr_t prewarm_ip;
     m_isDnsResolved.store(false);
-    g_dnsQueryState   = DnsQueryState::Waiting;
+    g_dnsQueryState.store(DnsQueryState::Waiting);
     g_dnsQueryStartMs = to_ms_since_boot(get_absolute_time());
     cyw43_arch_lwip_begin();
     err_t prewarm = dns_gethostbyname(m_smtpServer, &prewarm_ip, PicoMail::dns_callback, NULL);
@@ -2092,7 +2151,7 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     {
       printf("[SMTP] DNS pre-warm: %s cached as %s\n", m_smtpServer, ipaddr_ntoa(&prewarm_ip));
       m_isDnsResolved.store(true);
-      g_dnsQueryState = DnsQueryState::Completed;
+      g_dnsQueryState.store(DnsQueryState::Completed);
     } else
     if (prewarm == ERR_INPROGRESS)
     {
@@ -2100,7 +2159,7 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     } else
     {
       printf("[SMTP] DNS pre-warm failed to start (%d). Will retry at first send.\n", prewarm);
-      g_dnsQueryState = DnsQueryState::Idle;
+      g_dnsQueryState.store(DnsQueryState::Idle);
     }
   }
 
@@ -2168,13 +2227,13 @@ int PicoMail::Disconnect(bool hardDeinit)
   }
   if (hardDeinit)
   {
-    if (g_cyw43ArchInitialized)
+    if (g_cyw43ArchInitialized.load())
     {
       DeInitLwip();
     }
   } else
   {
-    if (g_cyw43ArchInitialized)
+    if (g_cyw43ArchInitialized.load())
     {
       cyw43_arch_disable_sta_mode();
       cyw43_arch_poll();
