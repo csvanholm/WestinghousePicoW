@@ -48,7 +48,11 @@ uint64_t time_us_64(void);
 #define configTIMER_TASK_STACK_DEPTH               512
 
 #define configNUMBER_OF_CORES                      2
+#if ( configNUMBER_OF_CORES > 1 )
+#define configRUN_MULTIPLE_PRIORITIES              1
+#else
 #define configRUN_MULTIPLE_PRIORITIES              0
+#endif
 #define configUSE_CORE_AFFINITY                    1
 #define configTASK_DEFAULT_CORE_AFFINITY           0xFFFFFFFFUL
 #define configUSE_TASK_PREEMPTION_DISABLE          0

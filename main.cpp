@@ -38,12 +38,14 @@ static constexpr uint32_t kNtpSyncTimeoutMs = 40000;
 static constexpr char kDefaultRecipientEmail[] = "csvanholm@comcast.net";
 
 // RTOS task priority constants
-static constexpr UBaseType_t kGeneratorTaskPriority = 2;
-static constexpr UBaseType_t kMailTaskPriority      = 3;
+static constexpr UBaseType_t kGeneratorTaskPriority = 3;
+static constexpr UBaseType_t kMailTaskPriority      = 2;
 static constexpr UBaseType_t kConsoleTaskPriority   = 1;
 static constexpr UBaseType_t kWatchdogTaskPriority  = 4;
 static constexpr uint8_t kGeneratorQueueDepth       = 32;
 static constexpr uint32_t kGeneratorHeartbeatTimeoutMs = 5000;
+static constexpr uint32_t kGeneratorStartupGraceMs = 10000;
+static constexpr uint32_t kMailTaskLoopDelayMs = 10;
 /**
  * Hardware watchdog timeout in milliseconds.
  * Must be longer than kGeneratorHeartbeatTimeoutMs to allow watchdog_task
@@ -331,10 +333,13 @@ static void generator_task(void *param)
  * the watchdog when the heartbeat is current (not stale). If the generator task
  * hangs or blocks for too long, the watchdog will detect stale heartbeat, stop feeding,
  * and allow the hardware timeout to expire, triggering a device reset.
- * 
- * Task startup is deliberately early (before vTaskStartScheduler) so the watchdog
- * is armed and running from the moment tasks begin executing.
- * 
+ *
+ * The watchdog is not armed until the generator task publishes its first real
+ * heartbeat. This avoids treating task startup ordering as a liveness failure.
+ * If no initial heartbeat arrives within kGeneratorStartupGraceMs, the system
+ * forces a reboot rather than running indefinitely without supervision.
+ *
+ * Initial heartbeat grace timeout: kGeneratorStartupGraceMs (10000 ms)
  * Heartbeat age threshold: kGeneratorHeartbeatTimeoutMs (5000 ms)
  * Hardware timeout: kWatchdogHardwareTimeoutMs (8000 ms)
  * Watchdog poll period: kWatchdogPollPeriodMs (250 ms)
@@ -343,9 +348,24 @@ static void watchdog_task(void *param)
 {
   (void)param;
 
+  const uint32_t startupWaitStartMs = to_ms_since_boot(get_absolute_time());
+  while (!g_generatorHeartbeatSeen.load())
+  {
+    const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
+    if ((nowMs - startupWaitStartMs) > kGeneratorStartupGraceMs)
+    {
+      printf("[WDT] No initial generator heartbeat within %lu ms. Rebooting...\n",
+             (unsigned long)kGeneratorStartupGraceMs);
+      watchdog_reboot(0, 0, 0);
+      vTaskSuspend(NULL);
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(kWatchdogPollPeriodMs));
+  }
+
   watchdog_enable(kWatchdogHardwareTimeoutMs, true);
   g_watchdogArmed.store(true);
-  printf("[WDT] Armed (timeout=%lu ms, generator heartbeat timeout=%lu ms).\n",
+  printf("[WDT] Armed after first generator heartbeat (timeout=%lu ms, generator heartbeat timeout=%lu ms).\n",
          (unsigned long)kWatchdogHardwareTimeoutMs,
          (unsigned long)kGeneratorHeartbeatTimeoutMs);
 
@@ -469,6 +489,7 @@ static void mail_task(void *param)
     }
 
     tickCounter++;
+    vTaskDelay(pdMS_TO_TICKS(kMailTaskLoopDelayMs));
   }
 }
 
