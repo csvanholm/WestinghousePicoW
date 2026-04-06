@@ -35,14 +35,24 @@ const uint LED_PIN = 25;  // onboard pico and pico2 led (GPIO LED)
 #endif
 
 static constexpr uint32_t kNtpSyncTimeoutMs = 40000;
-static constexpr uint32_t kControllerOnlineFallbackMs = 2u * 60u * 1000u;
 static constexpr char kDefaultRecipientEmail[] = "csvanholm@comcast.net";
 
 // RTOS task priority constants
 static constexpr UBaseType_t kGeneratorTaskPriority = 2;
 static constexpr UBaseType_t kMailTaskPriority      = 3;
 static constexpr UBaseType_t kConsoleTaskPriority   = 1;
+static constexpr UBaseType_t kWatchdogTaskPriority  = 4;
 static constexpr uint8_t kGeneratorQueueDepth       = 32;
+static constexpr uint32_t kGeneratorHeartbeatTimeoutMs = 5000;
+/**
+ * Hardware watchdog timeout in milliseconds.
+ * Must be longer than kGeneratorHeartbeatTimeoutMs to allow watchdog_task
+ * time to detect stale heartbeat and stop feeding. When heartbeat is healthy,
+ * this timer is continuously reset.  When heartbeat stales, the timer expires
+ * and triggers a hardware reset.
+ */
+static constexpr uint32_t kWatchdogHardwareTimeoutMs = 8000;
+static constexpr uint32_t kWatchdogPollPeriodMs = 250;
 
 /**
  * @brief Queue used to transfer generator events to the network-owning mail task.
@@ -53,6 +63,21 @@ static QueueHandle_t g_generatorEventQueue = NULL;
  * @brief Requests that the network-owning runtime path start an NTP sync attempt.
  */
 static std::atomic<bool> g_ntpSyncRequested(false);
+
+/**
+ * @brief Last observed generator main-loop heartbeat timestamp.
+ */
+static std::atomic<uint32_t> g_generatorHeartbeatMs(0);
+
+/**
+ * @brief Indicates at least one generator heartbeat has been observed.
+ */
+static std::atomic<bool> g_generatorHeartbeatSeen(false);
+
+/**
+ * @brief Indicates hardware watchdog has been armed.
+ */
+static std::atomic<bool> g_watchdogArmed(false);
 
 /**
  * @brief Initializes the board LED when using a GPIO-backed target.
@@ -278,6 +303,11 @@ static bool queue_event_sink(void *context, const GeneratorEventMessage &message
 /**
  * @brief Periodic RTOS task that owns the generator control loop.
  * @param param Queue handle used to export generator events.
+ *
+ * This task calls Generator::RunOneTick() every 500 ms and publishes a heartbeat
+ * timestamp after each tick. The heartbeat is monitored by watchdog_task to detect
+ * hangs or excessive blocking. If RunOneTick() blocks for more than
+ * kGeneratorHeartbeatTimeoutMs, the hardware watchdog will trigger a reset.
  */
 static void generator_task(void *param)
 {
@@ -286,7 +316,62 @@ static void generator_task(void *param)
   while (true)
   {
     generator.RunOneTick();
+    g_generatorHeartbeatMs.store(to_ms_since_boot(get_absolute_time()));
+    g_generatorHeartbeatSeen.store(true);
     vTaskDelay(pdMS_TO_TICKS(500));
+  }
+}
+
+/**
+ * @brief RTOS task that supervises generator heartbeat and feeds hardware watchdog.
+ * @param param Unused.
+ *
+ * This task is the sole driver of the hardware watchdog. It monitors the generator
+ * task heartbeat (updated by generator_task after each RunOneTick) and only feeds
+ * the watchdog when the heartbeat is current (not stale). If the generator task
+ * hangs or blocks for too long, the watchdog will detect stale heartbeat, stop feeding,
+ * and allow the hardware timeout to expire, triggering a device reset.
+ * 
+ * Task startup is deliberately early (before vTaskStartScheduler) so the watchdog
+ * is armed and running from the moment tasks begin executing.
+ * 
+ * Heartbeat age threshold: kGeneratorHeartbeatTimeoutMs (5000 ms)
+ * Hardware timeout: kWatchdogHardwareTimeoutMs (8000 ms)
+ * Watchdog poll period: kWatchdogPollPeriodMs (250 ms)
+ */
+static void watchdog_task(void *param)
+{
+  (void)param;
+
+  watchdog_enable(kWatchdogHardwareTimeoutMs, true);
+  g_watchdogArmed.store(true);
+  printf("[WDT] Armed (timeout=%lu ms, generator heartbeat timeout=%lu ms).\n",
+         (unsigned long)kWatchdogHardwareTimeoutMs,
+         (unsigned long)kGeneratorHeartbeatTimeoutMs);
+
+  while (true)
+  {
+    const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
+    const bool seenHeartbeat = g_generatorHeartbeatSeen.load();
+    const uint32_t lastHeartbeatMs = g_generatorHeartbeatMs.load();
+
+    bool generatorHealthy = true;
+    if (seenHeartbeat)
+    {
+      generatorHealthy = ((nowMs - lastHeartbeatMs) <= kGeneratorHeartbeatTimeoutMs);
+    }
+
+    if (generatorHealthy)
+    {
+      watchdog_update();
+    } else
+    {
+      // Do not feed while generator heartbeat appears stale.
+      printf("[WDT] Generator heartbeat stale (%lu ms). Waiting for watchdog reset...\n",
+             (unsigned long)(nowMs - lastHeartbeatMs));
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(kWatchdogPollPeriodMs));
   }
 }
 
@@ -306,13 +391,14 @@ static void mail_task(void *param)
   // mail_service.cpp still contains legacy single-loop network logic, so
   // splitting reconnect, NTP, and outbox flushing across multiple tasks is unsafe.
   PicoMail *mail = static_cast<PicoMail *>(param);
-  bool controllerOnlineQueued = false;
   uint32_t bootMs = to_ms_since_boot(get_absolute_time());
   uint32_t tickCounter = 0;
   static constexpr uint32_t kReconnectPeriodTicks = 60;
   bool wasConnected = mail->IsConnected();
   bool wasNtpSynced = is_ntp_synced();
   uint8_t lastOutboxCount = mail->GetOutboxCount();
+
+  (void)mail->EnQueueGeneratorStatus(GeneratorEvent::ControllerOnline, bootMs);
 
   if (wasConnected)
   {
@@ -325,7 +411,7 @@ static void mail_task(void *param)
     const BaseType_t hasEvent = xQueueReceive(g_generatorEventQueue, &firstEvent, pdMS_TO_TICKS(500));
     if (hasEvent == pdTRUE)
     {
-      (void)mail->EnQueueGeneratorStatus(firstEvent.eventCode);
+      (void)mail->EnQueueGeneratorStatus(firstEvent.eventCode, firstEvent.timestampMs);
     }
 
     const bool isConnected = mail->IsConnected();
@@ -358,7 +444,7 @@ static void mail_task(void *param)
     GeneratorEventMessage eventMessage;
     while (xQueueReceive(g_generatorEventQueue, &eventMessage, 0) == pdTRUE)
     {
-      (void)mail->EnQueueGeneratorStatus(eventMessage.eventCode);
+      (void)mail->EnQueueGeneratorStatus(eventMessage.eventCode, eventMessage.timestampMs);
     }
 
     if (isConnected && g_ntpSyncRequested.exchange(false))
@@ -368,22 +454,6 @@ static void mail_task(void *param)
     }
 
     (void)poll_ntp_sync();
-
-    if (!controllerOnlineQueued)
-    {
-      const bool synced = is_ntp_synced();
-      const uint32_t elapsedMs = to_ms_since_boot(get_absolute_time()) - bootMs;
-      const bool fallbackExpired = (elapsedMs >= kControllerOnlineFallbackMs);
-      if (synced || fallbackExpired)
-      {
-        if (!synced)
-        {
-          printf("Controller online notice queued without NTP sync after %lu ms fallback.\n", (unsigned long)elapsedMs);
-        }
-        (void)mail->EnQueueGeneratorStatus(GeneratorEvent::ControllerOnline);
-        controllerOnlineQueued = true;
-      }
-    }
 
     if (mail->GetOutboxCount() > 0)
     {
@@ -509,6 +579,13 @@ int main()
     printf("Failed to create console task.\n");
     return -1;
   }
+
+  if (xTaskCreate(watchdog_task, "Watchdog", 1024, NULL, kWatchdogTaskPriority, NULL) != pdPASS)
+  {
+    printf("Failed to create watchdog task.\n");
+    return -1;
+  }
+
   printf("[RTOS] Tasks created, starting scheduler...\n");
   vTaskStartScheduler();
   printf("Scheduler exited unexpectedly.\n");

@@ -48,11 +48,26 @@ class PicoMail
     char subject[80];
     char body[128];
     uint16_t retryCount;
+    /**
+     * Monotonic milliseconds since boot when this email was queued.
+     * Used to reconstruct accurate local time for status emails queued before
+     * NTP sync via get_local_time_for_ms(). When NTP is unavailable at enqueue time,
+     * the email body contains placeholder "Time: no clock" and "Date: no date" strings
+     * which are later replaced with the true event time once NTP sync completes.
+     */
+    uint32_t queuedAtMs;
   };
 
   enum class FlushState
   {
     Idle,
+    /**
+     * Deferring send of queued status email until NTP provides accurate local time.
+     * A queued status email contains placeholder "Time: no clock" and "Date: no date"
+     * strings and cannot be sent until NTP sync completes, triggering timestamp repair
+     * via RefreshQueuedStatusTimestamps().
+     */
+    WaitingForNtp,
     WaitingForBusyRetry,
     WaitingForDns,
     WaitingForCallback
@@ -117,6 +132,7 @@ public:
   int SendEmail(const char *from, const char *to, const char *subject, const char *body);
   bool EnQueueEmail(const char *from, const char *to, const char *subject, const char *body);
   bool EnQueueGeneratorStatus(GeneratorEvent status);
+  bool EnQueueGeneratorStatus(GeneratorEvent status, uint32_t eventTimestampMs);
 
   void VerifyDnsAndSend(const char *hostname);
   void CheckGatewayIpDns();
@@ -132,11 +148,22 @@ public:
   void IncrementHeadRetryCount();
 
   /**
+   * @brief Updates queued generator-status emails once NTP-backed local time is available.
+   */
+  void RefreshQueuedStatusTimestamps();
+
+  /**
    * @brief Rewrites placeholder status-email timestamps when local time becomes available.
    * @param email Mutable queued email payload snapshot.
    */
   void RefreshQueuedStatusTimestamp(QueuedEmail *email);
+  static bool QueuedStatusNeedsTimestampRefresh(const QueuedEmail &email);
   static bool IsBusySmtpError(err_t err);
+  bool EnQueueEmailAt(const char *from,
+                     const char *to,
+                     const char *subject,
+                     const char *body,
+                     uint32_t timestampMs);
 
   /**
    * @brief Returns monotonic milliseconds since boot for timeout/state checks.

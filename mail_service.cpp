@@ -60,6 +60,11 @@ static std::atomic<bool> g_sntpRunning(false);
 static std::atomic<bool> g_cyw43ArchInitialized(false);
 static const char *LwipErrToString(err_t err);
 static int get_local_time(char *time, size_t timeSize, char *date, size_t dateSize);
+static bool get_local_time_for_ms(uint32_t timestampMs,
+                                  char *time,
+                                  size_t timeSize,
+                                  char *date,
+                                  size_t dateSize);
 
 /**
  * @brief Delays for the requested time using RTOS delay when available.
@@ -971,6 +976,68 @@ static int get_local_time(char *time, size_t timeSize, char *date, size_t dateSi
   return -1;
 }
 
+/**
+ * @brief Formats local time/date for a monotonic timestamp captured since boot.
+ * @param timestampMs Monotonic timestamp in milliseconds since boot.
+ * @param time Output time string buffer (HH:MM:SS).
+ * @param timeSize Size of time buffer.
+ * @param date Output date string buffer.
+ * @param dateSize Size of date buffer.
+ * @return true on success; false when synchronized wall clock time is unavailable.
+ */
+static bool get_local_time_for_ms(uint32_t timestampMs,
+                                  char *time,
+                                  size_t timeSize,
+                                  char *date,
+                                  size_t dateSize)
+{
+  if ((time == NULL) || (timeSize == 0) || (date == NULL) || (dateSize == 0))
+  {
+    return false;
+  }
+
+  if (!g_ntpSynced.load())
+  {
+    return false;
+  }
+
+  struct tm currentUtc = {0};
+  if (!get_platform_utc_time(&currentUtc))
+  {
+    return false;
+  }
+  if (currentUtc.tm_year < (2020 - 1900))
+  {
+    return false;
+  }
+
+  time_t currentUtcEpoch = 0;
+  if (!convert_utc_tm_to_epoch(&currentUtc, &currentUtcEpoch))
+  {
+    return false;
+  }
+
+  const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
+  const uint32_t elapsedMs = nowMs - timestampMs;
+  time_t eventUtcEpoch = currentUtcEpoch - (time_t)(elapsedMs / 1000u);
+  time_t localEpoch = eventUtcEpoch + UTC_OFFSET_SECONDS;
+  struct tm localTm = {0};
+  if (!convert_epoch_to_utc_tm(localEpoch, &localTm))
+  {
+    return false;
+  }
+
+  snprintf(time, timeSize, "%02d:%02d:%02d",
+           localTm.tm_hour,
+           localTm.tm_min,
+           localTm.tm_sec);
+  snprintf(date, dateSize, "%02d/%02d/%04d",
+           localTm.tm_mon + 1,
+           localTm.tm_mday,
+           localTm.tm_year + 1900);
+  return true;
+}
+
 
 /**
  * @brief Computes estimated total heap size from linker symbols.
@@ -1089,6 +1156,15 @@ void PicoMail::SafeCopy(char *destination, size_t destinationSize, const char *s
  */
 bool PicoMail::EnQueueEmail(const char *from, const char *to, const char *subject, const char *body)
 {
+  return EnQueueEmailAt(from, to, subject, body, to_ms_since_boot(get_absolute_time()));
+}
+
+bool PicoMail::EnQueueEmailAt(const char *from,
+                              const char *to,
+                              const char *subject,
+                              const char *body,
+                              uint32_t timestampMs)
+{
   // Note better validation for email addresses should be added
   if ((from == NULL) || (to == NULL) || (strchr(from, '@') == NULL) || (strchr(to, '@') == NULL))
   {
@@ -1111,6 +1187,7 @@ bool PicoMail::EnQueueEmail(const char *from, const char *to, const char *subjec
   SafeCopy(slot.subject, sizeof(slot.subject), subject);
   SafeCopy(slot.body, sizeof(slot.body), body);
   slot.retryCount = 0;
+  slot.queuedAtMs = timestampMs;
   m_outboxTail = (uint8_t)((m_outboxTail + 1) % OUTBOX_CAPACITY);
   m_outboxCount++;
   uint8_t depth = m_outboxCount;
@@ -1125,6 +1202,11 @@ bool PicoMail::EnQueueEmail(const char *from, const char *to, const char *subjec
  * @return true when the status email is queued; false on enqueue failure.
  */
 bool PicoMail::EnQueueGeneratorStatus(GeneratorEvent statusCode)
+{
+  return EnQueueGeneratorStatus(statusCode, to_ms_since_boot(get_absolute_time()));
+}
+
+bool PicoMail::EnQueueGeneratorStatus(GeneratorEvent statusCode, uint32_t eventTimestampMs)
 {
   // this creates a status update and add a timestamp
   char time[32] = "no clock";
@@ -1148,7 +1230,11 @@ bool PicoMail::EnQueueGeneratorStatus(GeneratorEvent statusCode)
     case GeneratorEvent::StartFailure:        snprintf(msg, sizeof(msg), "Generator failed to start\nPlease check generator and power cycle the controller\nTime: %s\nDate: %s\n", time, date); break;
     default:                                  snprintf(msg, sizeof(msg), "Unknown status code %d\nTime: %s\nDate: %s\n", (int)statusCode, time, date); break;
   }
-  return EnQueueEmail(GetSenderEmail(), GetRecipientEmail(), "Generator Status Update", msg);
+  return EnQueueEmailAt(GetSenderEmail(),
+                        GetRecipientEmail(),
+                        "Generator Status Update",
+                        msg,
+                        eventTimestampMs);
 }
 
 
@@ -1202,6 +1288,33 @@ void PicoMail::IncrementHeadRetryCount()
   critical_section_exit(&m_outboxLock);
 }
 
+bool PicoMail::QueuedStatusNeedsTimestampRefresh(const QueuedEmail &email)
+{
+  if (strcmp(email.subject, "Generator Status Update") != 0)
+  {
+    return false;
+  }
+
+  return (strstr(email.body, "Time: no clock") != NULL) ||
+         (strstr(email.body, "Date: no date") != NULL);
+}
+
+void PicoMail::RefreshQueuedStatusTimestamps()
+{
+  if (!g_ntpSynced.load())
+  {
+    return;
+  }
+
+  critical_section_enter_blocking(&m_outboxLock);
+  for (uint8_t i = 0; i < m_outboxCount; i++)
+  {
+    const uint8_t index = (uint8_t)((m_outboxHead + i) % OUTBOX_CAPACITY);
+    RefreshQueuedStatusTimestamp(&m_outbox[index]);
+  }
+  critical_section_exit(&m_outboxLock);
+}
+
 /**
  * @brief Replaces placeholder status-email timestamp fields just before send.
  */
@@ -1213,19 +1326,18 @@ void PicoMail::RefreshQueuedStatusTimestamp(QueuedEmail *email)
   }
 
   // Only patch generator status payloads that were queued before RTC was synced.
-  if (strcmp(email->subject, "Generator Status Update") != 0)
-  {
-    return;
-  }
-  if ((strstr(email->body, "Time: no clock") == NULL) &&
-      (strstr(email->body, "Date: no date") == NULL))
+  if (!QueuedStatusNeedsTimestampRefresh(*email))
   {
     return;
   }
 
   char localTime[32] = {0};
   char localDate[32] = {0};
-  if (get_local_time(localTime, sizeof(localTime), localDate, sizeof(localDate)) != 0)
+  if (!get_local_time_for_ms(email->queuedAtMs,
+                             localTime,
+                             sizeof(localTime),
+                             localDate,
+                             sizeof(localDate)))
   {
     return;
   }
@@ -1287,13 +1399,34 @@ int PicoMail::FlushOutbox()
     return -1;
   }
 
+  if (g_ntpSynced.load())
+  {
+    RefreshQueuedStatusTimestamps();
+  }
+
   QueuedEmail email = {};
   if (!PeekOutbox(&email))
   {
     m_flushState = FlushState::Idle;
     return 0;
   }
-  RefreshQueuedStatusTimestamp(&email);
+
+  if (QueuedStatusNeedsTimestampRefresh(email) && !g_ntpSynced.load())
+  {
+    if (m_flushState != FlushState::WaitingForNtp)
+    {
+      m_flushState = FlushState::WaitingForNtp;
+      m_flushStateStartMs = GetNowMs();
+      printf("[SMTP] Deferring queued status email until NTP sync completes. Pending emails: %u\n",
+             GetOutboxCount());
+    }
+    return -1;
+  }
+
+  if (m_flushState == FlushState::WaitingForNtp)
+  {
+    m_flushState = FlushState::Idle;
+  }
 
   if (m_flushState == FlushState::WaitingForBusyRetry)
   {
@@ -2165,8 +2298,8 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
 
   if (m_outboxCount > 0)
   {
-    printf("Attempting to flush %u queued email(s) after connect...\n", m_outboxCount);
-    FlushOutbox();
+    printf("Queued email(s) pending after connect: %u. Flush will resume from the mail task once NTP is ready.\n",
+           m_outboxCount);
   }
   return 0;
 }
