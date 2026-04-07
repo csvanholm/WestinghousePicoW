@@ -561,12 +561,15 @@ void PicoMail::ConfigureRuntimeSmtp(const char *server,
     changed = true;
   }
 
+  /*
   printf("[SMTP] Runtime config %s. host='%s' port=%u sender='%s' recipient='%s'\n",
          changed ? "updated" : "unchanged",
          m_smtpServer,
          (unsigned)m_smtpPort,
          m_senderEmail,
          m_recipientEmail);
+ 
+ */
   SafeCopy(g_lastConfiguredSmtpHost, sizeof(g_lastConfiguredSmtpHost), m_smtpServer);
   SafeCopy(g_lastConfiguredSender, sizeof(g_lastConfiguredSender), m_senderEmail);
 
@@ -574,6 +577,23 @@ void PicoMail::ConfigureRuntimeSmtp(const char *server,
       !ends_with_case_insensitive(m_senderEmail, "@gmail.com"))
   {
     printf("[SMTP] Warning: smtp.gmail.com usually requires a @gmail.com sender account.\n");
+  }
+}
+
+void PicoMail::SetRuntimeWifiCredentials(const char *ssid, const char *password)
+{
+  if ((ssid == NULL) || (ssid[0] == '\0'))
+  {
+    return;
+  }
+
+  SafeCopy(m_wifiSsid, sizeof(m_wifiSsid), ssid);
+  if (password != NULL)
+  {
+    SafeCopy(m_wifiPassword, sizeof(m_wifiPassword), password);
+  } else
+  {
+    m_wifiPassword[0] = '\0';
   }
 }
 
@@ -2233,7 +2253,7 @@ int PicoMail::WifiConnect(const char *ssid, const char *password, bool force_dns
     EnsureDnsServersConfigured("post-connect DHCP validation");
   }
 
-  printf("Connected to Wi-Fi\n\n");
+  printf("Connected to Wi-Fi\n");
   m_isConnected.store(true);
 
   // Port 465 is the only port supported by the lwIP SMTP client with TLS,

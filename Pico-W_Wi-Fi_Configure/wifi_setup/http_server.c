@@ -543,7 +543,7 @@ const char * cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcVa
     {
         _c->magic = MAGIC;
         _c->version = CONFIG_VERSION;
-        isConfigured = true;
+        ap_mark_config_done();
         return "/done.shtml";
     } else
     {

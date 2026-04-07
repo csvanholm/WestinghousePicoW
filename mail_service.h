@@ -125,6 +125,7 @@ public:
                             const char *senderEmail,
                             const char *senderPassword,
                             const char *recipientEmail);
+  void SetRuntimeWifiCredentials(const char *ssid, const char *password);
   
   int ConnectWithCredentials(const char *ssid, const char *password, bool force_dns = false);
   int Connect();

@@ -46,6 +46,7 @@ static constexpr uint8_t kGeneratorQueueDepth       = 32;
 static constexpr uint32_t kGeneratorHeartbeatTimeoutMs = 5000;
 static constexpr uint32_t kGeneratorStartupGraceMs = 10000;
 static constexpr uint32_t kMailTaskLoopDelayMs = 10;
+static constexpr bool kVerboseRtosLogs = false;
 /**
  * Hardware watchdog timeout in milliseconds.
  * Must be longer than kGeneratorHeartbeatTimeoutMs to allow watchdog_task
@@ -229,6 +230,10 @@ static void ensure_runtime_wifi_config(config *wifiConfig)
       printf("[SETUP] Config schema v%u does not match expected v%u, re-running setup\n",
              (unsigned)wifiConfig->version, (unsigned)CONFIG_VERSION);
     }
+    // AP setup may run for minutes while waiting for user input, so ensure no
+    // inherited watchdog state can reset the device during provisioning.
+    printf("[SETUP] Disabling watchdog during AP provisioning mode.\n");
+    watchdog_disable();
     printf("[SETUP] Entering AP config mode at 192.168.0.1\n");
     run_access_point(wifiConfig);
     apply_runtime_mail_defaults(wifiConfig);
@@ -280,8 +285,9 @@ static void handle_serial_command(int ch, PicoMail *mail)
       printf("[CMD] Rebooting...\n");
        watchdog_reboot(0, 0, 0);
       break;
-    
-      default:
+   
+        
+    default:
       break;
   }
 }
@@ -428,7 +434,7 @@ static void mail_task(void *param)
   while (true)
   {
     GeneratorEventMessage firstEvent;
-    const BaseType_t hasEvent = xQueueReceive(g_generatorEventQueue, &firstEvent, pdMS_TO_TICKS(500));
+    const BaseType_t hasEvent = xQueueReceive(g_generatorEventQueue, &firstEvent, 0);
     if (hasEvent == pdTRUE)
     {
       (void)mail->EnQueueGeneratorStatus(firstEvent.eventCode, firstEvent.timestampMs);
@@ -439,25 +445,37 @@ static void mail_task(void *param)
     const uint8_t outboxCount = mail->GetOutboxCount();
     if (isConnected && !wasConnected)
     {
-      printf("[RTOS] Wi-Fi connection restored in mail task.\n");
+      if (kVerboseRtosLogs)
+      {
+        printf("[RTOS] Wi-Fi connection restored in mail task.\n");
+      }
       g_ntpSyncRequested.store(true);
     } else if (!isConnected && wasConnected)
     {
-      printf("[RTOS] Wi-Fi connection lost in mail task.\n");
+      if (kVerboseRtosLogs)
+      {
+        printf("[RTOS] Wi-Fi connection lost in mail task.\n");
+      }
     }
     wasConnected = isConnected;
 
     if (isNtpSynced && !wasNtpSynced)
     {
-      printf("[RTOS] NTP state transitioned to synced.\n");
+      if (kVerboseRtosLogs)
+      {
+        printf("[RTOS] NTP state transitioned to synced.\n");
+      }
     }
     wasNtpSynced = isNtpSynced;
 
     if (outboxCount != lastOutboxCount)
     {
-      printf("[RTOS] Outbox depth changed: %u -> %u\n",
-             static_cast<unsigned>(lastOutboxCount),
-             static_cast<unsigned>(outboxCount));
+      if (kVerboseRtosLogs)
+      {
+        printf("[RTOS] Outbox depth changed: %u -> %u\n",
+               static_cast<unsigned>(lastOutboxCount),
+               static_cast<unsigned>(outboxCount));
+      }
       lastOutboxCount = outboxCount;
     }
 
@@ -479,7 +497,10 @@ static void mail_task(void *param)
     {
       if (!mail->IsConnected() && ((tickCounter % kReconnectPeriodTicks) == 0u))
       {
-        printf("Pending email exists while disconnected. Attempting reconnect...\n");
+        if (kVerboseRtosLogs)
+        {
+          printf("Pending email exists while disconnected. Attempting reconnect...\n");
+        }
         if (mail->Connect() == 0)
         {
           g_ntpSyncRequested.store(true);
@@ -524,6 +545,17 @@ static void console_task(void *param)
 int main()
 {
   stdio_init_all();
+  if (watchdog_enable_caused_reboot())
+  {
+    printf("[BOOT] Reset cause: hardware watchdog timeout (unrecovered liveness failure).\n");
+  } else
+  if (watchdog_caused_reboot())
+  {
+    printf("[BOOT] Reset cause: controlled watchdog reboot (firmware-initiated).\n");
+  } else
+  {
+    printf("[BOOT] Reset cause: power-on or external reset.\n");
+  }
   init_onboard_led();
   init_platform_clock();
 
@@ -536,32 +568,26 @@ int main()
 
 #ifdef _PICO_W
   config wifiConfig = {};
+
+  // AP setup uses cyw43/lwIP directly, so stack init must happen first.
   if (picoMail->InitLwip() != 0)
   {
     printf("Failed to initialize Wi-Fi stack.\n");
     return -1;
   }
-  
+
   // read config from flash and run AP setup if needed. This ensures we have Wi-Fi credentials before proceeding and also migrates legacy config formats.
   ensure_runtime_wifi_config(&wifiConfig);
-/*
-  printf("[SETUP] Loaded SMTP config from flash:\nhost='%s'\nport=%u\nsender='%s'\nrecipient='%s'\n",
-      wifiConfig.smtp_server,
-      (unsigned) wifiConfig.smtp_port,
-      wifiConfig.sender_email,
-      wifiConfig.recipient_email);
-*/
- 
+
   picoMail->ConfigureRuntimeSmtp(wifiConfig.smtp_server,
                                  wifiConfig.smtp_port,
                                  wifiConfig.sender_email,
                                  wifiConfig.sender_password,
                                  wifiConfig.recipient_email);
 
-  if (picoMail->ConnectWithCredentials(wifiConfig.ssid, wifiConfig.passwd, false) == 0)
-  {
-    g_ntpSyncRequested.store(true);
-  }
+  // Cache runtime credentials now; connect is deferred to mail_task after scheduler
+  // start so watchdog supervision is active during blocking Wi-Fi operations.
+  picoMail->SetRuntimeWifiCredentials(wifiConfig.ssid, wifiConfig.passwd);
 #else
   if (picoMail->Connect() == 0)
   {
@@ -569,8 +595,11 @@ int main()
   }
 #endif
 
-  sleep_ms(2000);
-  picoMail->CheckGatewayIpDns();
+  if (picoMail->IsConnected())
+  {
+    sleep_ms(2000);
+    picoMail->CheckGatewayIpDns();
+  }
 
   g_generatorEventQueue = xQueueCreate(kGeneratorQueueDepth, sizeof(GeneratorEventMessage));
   if (g_generatorEventQueue == NULL)

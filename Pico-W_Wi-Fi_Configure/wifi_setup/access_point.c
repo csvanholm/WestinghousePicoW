@@ -13,6 +13,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
@@ -25,9 +26,19 @@
 #include "dhcp_server.h"
 
 config *_c;
-bool isConfigured = false;
+static atomic_bool g_isConfigured = ATOMIC_VAR_INIT(false);
 
 static void run_http_server();
+
+bool ap_config_is_done(void)
+{
+    return atomic_load_explicit(&g_isConfigured, memory_order_acquire);
+}
+
+void ap_mark_config_done(void)
+{
+    atomic_store_explicit(&g_isConfigured, true, memory_order_release);
+}
 
 /*
  * void run_access_point(config *config)
@@ -43,6 +54,7 @@ static void run_http_server();
 void run_access_point(config *config)
 {
     _c = config;
+    atomic_store_explicit(&g_isConfigured, false, memory_order_relaxed);
 
     if (_c->magic != MAGIC)
     {
@@ -104,7 +116,7 @@ void run_access_point(config *config)
     // and the http server
     run_http_server();
 
-    while (!isConfigured)
+    while (!ap_config_is_done())
     {
         static absolute_time_t led_time;
         static int led_on = true;

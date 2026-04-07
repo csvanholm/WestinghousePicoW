@@ -61,7 +61,9 @@ typedef struct _config
 } config;
 
 extern config *_c;
-extern bool isConfigured;
+
+bool ap_config_is_done(void);
+void ap_mark_config_done(void);
 
 bool forceSetup();
 void run_access_point(config *config);
