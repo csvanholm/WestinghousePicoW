@@ -65,6 +65,10 @@
 #include "lwip/altcp_tcp.h"
 #include "lwip/altcp_tls.h"
 
+#if LWIP_ALTCP && LWIP_ALTCP_TLS && LWIP_ALTCP_TLS_MBEDTLS
+#include "mbedtls/ssl.h"
+#endif
+
 #include <string.h> /* strlen, memcpy */
 #include <stdlib.h>
 
@@ -457,11 +461,23 @@ static struct altcp_pcb*
 smtp_setup_pcb(struct smtp_session *s, const ip_addr_t* remote_ip)
 {
   struct altcp_pcb* pcb;
+  int tls_ret;
   LWIP_UNUSED_ARG(remote_ip);
 
 #if LWIP_ALTCP && LWIP_ALTCP_TLS
   if (smtp_server_tls_config) {
     pcb = altcp_tls_new(smtp_server_tls_config, IP_GET_TYPE(remote_ip));
+#if LWIP_ALTCP_TLS_MBEDTLS
+    if ((pcb != NULL) && (smtp_server != NULL) && (smtp_server[0] != '\0')) {
+      mbedtls_ssl_context *ssl = (mbedtls_ssl_context *)altcp_tls_context(pcb);
+      if (ssl != NULL) {
+        tls_ret = mbedtls_ssl_set_hostname(ssl, smtp_server);
+        if (tls_ret != 0) {
+          LWIP_DEBUGF(SMTP_DEBUG_WARN_STATE, ("mbedtls_ssl_set_hostname failed: %d\n", tls_ret));
+        }
+      }
+    }
+#endif
   } else
 #endif
   {

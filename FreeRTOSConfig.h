@@ -22,7 +22,11 @@ uint64_t time_us_64(void);
 #define configUSE_TICK_HOOK                        0
 #define configTICK_RATE_HZ                         ( ( uint32_t ) 1000 )
 #define configMAX_PRIORITIES                       6
+#if PICO_RP2350
+#define configMINIMAL_STACK_SIZE                   1024
+#else
 #define configMINIMAL_STACK_SIZE                   256
+#endif
 #define configMAX_TASK_NAME_LEN                    16
 #define configTICK_TYPE_WIDTH_IN_BITS              TICK_TYPE_WIDTH_32_BITS
 #define configIDLE_SHOULD_YIELD                    1
@@ -32,10 +36,14 @@ uint64_t time_us_64(void);
 
 #define configSUPPORT_DYNAMIC_ALLOCATION           1
 #define configSUPPORT_STATIC_ALLOCATION            0
+#if PICO_RP2350
+#define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 128 * 1024 ) )
+#else
 #define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 96 * 1024 ) )
+#endif
 #define configAPPLICATION_ALLOCATED_HEAP           0
-#define configUSE_MALLOC_FAILED_HOOK               0
-#define configCHECK_FOR_STACK_OVERFLOW             0
+#define configUSE_MALLOC_FAILED_HOOK               1
+#define configCHECK_FOR_STACK_OVERFLOW             2
 #define configRECORD_STACK_HIGH_ADDRESS            1
 
 #define configUSE_MUTEXES                          1
@@ -45,7 +53,11 @@ uint64_t time_us_64(void);
 #define configUSE_TIMERS                           1
 #define configTIMER_TASK_PRIORITY                  ( configMAX_PRIORITIES - 1 )
 #define configTIMER_QUEUE_LENGTH                   8
+#if PICO_RP2350
+#define configTIMER_TASK_STACK_DEPTH               1024
+#else
 #define configTIMER_TASK_STACK_DEPTH               512
+#endif
 
 #define configNUMBER_OF_CORES                      2
 #if ( configNUMBER_OF_CORES > 1 )

@@ -102,6 +102,19 @@ size_t mbedtls_ssl_get_output_max_frag_len(const mbedtls_ssl_context *ssl);
 #define ALTCP_MBEDTLS_RNG_FN   mbedtls_entropy_func
 #endif
 
+/* Client TLS profile selector:
+ * 0 = library defaults
+ * 1 = stable RSA-CBC-only profile
+ */
+#ifndef ALTCP_MBEDTLS_CLIENT_PROFILE
+#define ALTCP_MBEDTLS_CLIENT_PROFILE 1
+#endif
+
+/* Optional verbose TLS diagnostics for handshake/read failures. */
+#ifndef ALTCP_MBEDTLS_VERBOSE_TLS_ERRORS
+#define ALTCP_MBEDTLS_VERBOSE_TLS_ERRORS 0
+#endif
+
 /* Variable prototype, the actual declaration is at the end of this file
    since it contains pointers to static functions declared here */
 extern const struct altcp_functions altcp_mbedtls_functions;
@@ -849,6 +862,22 @@ altcp_tls_create_config(int is_server, u8_t cert_count, u8_t pkey_count, int hav
     altcp_mbedtls_free_config(conf);
     return NULL;
   }
+
+  if (!is_server) {
+#if ALTCP_MBEDTLS_CLIENT_PROFILE == 1
+    static const int client_ciphersuites[] = {
+#if defined(MBEDTLS_TLS_RSA_WITH_AES_128_CBC_SHA256)
+      MBEDTLS_TLS_RSA_WITH_AES_128_CBC_SHA256,
+#endif
+#if defined(MBEDTLS_TLS_RSA_WITH_AES_128_CBC_SHA)
+      MBEDTLS_TLS_RSA_WITH_AES_128_CBC_SHA,
+#endif
+      0
+    };
+    mbedtls_ssl_conf_ciphersuites(&conf->conf, client_ciphersuites);
+#endif
+  }
+
   mbedtls_ssl_conf_authmode(&conf->conf, ALTCP_MBEDTLS_AUTHMODE);
 
   mbedtls_ssl_conf_rng(&conf->conf, mbedtls_ctr_drbg_random, &altcp_tls_entropy_rng->ctr_drbg);

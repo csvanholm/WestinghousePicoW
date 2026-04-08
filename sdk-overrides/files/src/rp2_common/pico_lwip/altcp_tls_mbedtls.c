@@ -318,33 +318,6 @@ altcp_mbedtls_lower_recv_process(struct altcp_pcb *conn, altcp_mbedtls_state_t *
     }
     if (ret != 0) {
       LWIP_DEBUGF(ALTCP_MBEDTLS_DEBUG, ("mbedtls_ssl_handshake failed: %d\n", ret));
-#if ALTCP_MBEDTLS_VERBOSE_TLS_ERRORS
-#if defined(MBEDTLS_ERROR_C)
-      {
-        const char *tls_ver = mbedtls_ssl_get_version(&state->ssl_context);
-        const char *cipher = mbedtls_ssl_get_ciphersuite(&state->ssl_context);
-        uint32_t vrfy = mbedtls_ssl_get_verify_result(&state->ssl_context);
-        char errbuf[128];
-        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        LWIP_PLATFORM_DIAG(("[TLS] handshake failed: %d (0x%04x): %s, version=%s, ciphersuite=%s, verify=0x%08lx\n",
-          ret, (unsigned int)(-ret), errbuf,
-          (tls_ver != NULL) ? tls_ver : "<none>",
-          (cipher != NULL) ? cipher : "<none>",
-          (unsigned long)vrfy));
-      }
-#else
-      {
-        const char *tls_ver = mbedtls_ssl_get_version(&state->ssl_context);
-        const char *cipher = mbedtls_ssl_get_ciphersuite(&state->ssl_context);
-        uint32_t vrfy = mbedtls_ssl_get_verify_result(&state->ssl_context);
-        LWIP_PLATFORM_DIAG(("[TLS] handshake failed: %d (0x%04x), version=%s, ciphersuite=%s, verify=0x%08lx\n",
-          ret, (unsigned int)(-ret),
-          (tls_ver != NULL) ? tls_ver : "<none>",
-          (cipher != NULL) ? cipher : "<none>",
-          (unsigned long)vrfy));
-      }
-#endif
-#endif
       /* handshake failed, connection has to be closed */
       if (conn->err) {
         conn->err(conn->arg, ERR_CLSD);
@@ -456,16 +429,6 @@ altcp_mbedtls_handle_rx_appldata(struct altcp_pcb *conn, altcp_mbedtls_state_t *
           LWIP_DEBUGF(ALTCP_MBEDTLS_DEBUG, ("connection was closed gracefully\n"));
         } else if (ret == MBEDTLS_ERR_NET_CONN_RESET) {
           LWIP_DEBUGF(ALTCP_MBEDTLS_DEBUG, ("connection was reset by peer\n"));
-        } else {
-#if ALTCP_MBEDTLS_VERBOSE_TLS_ERRORS
-#if defined(MBEDTLS_ERROR_C)
-          char errbuf[128];
-          mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-          LWIP_PLATFORM_DIAG(("[TLS] ssl_read failed: %d (0x%04x): %s\n", ret, (unsigned int)(-ret), errbuf));
-#else
-          LWIP_PLATFORM_DIAG(("[TLS] ssl_read failed: %d (0x%04x)\n", ret, (unsigned int)(-ret)));
-#endif
-#endif
         }
         pbuf_free(buf);
         return ERR_OK;
@@ -778,6 +741,9 @@ static void
 altcp_mbedtls_debug(void *ctx, int level, const char *file, int line, const char *str)
 {
   LWIP_UNUSED_ARG(ctx);
+  LWIP_UNUSED_ARG(file);
+  LWIP_UNUSED_ARG(line);
+  LWIP_UNUSED_ARG(str);
 
   if (level >= ALTCP_MBEDTLS_LIB_DEBUG_LEVEL_MIN) {
     LWIP_DEBUGF(ALTCP_MBEDTLS_LIB_DEBUG, ("%s:%04d: %s\n", file, line, str));

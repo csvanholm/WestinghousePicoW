@@ -37,6 +37,9 @@ async_context_t *cyw43_arch_init_default_async_context(void) {
 #ifdef CYW43_TASK_STACK_SIZE
     config.task_stack_size = CYW43_TASK_STACK_SIZE;
 #endif
+#if PICO_RP2350 && configUSE_CORE_AFFINITY && (configNUMBER_OF_CORES > 1)
+    config.task_core_id = 0;
+#endif
 #if configSUPPORT_STATIC_ALLOCATION && !CYW43_NO_DEFAULT_TASK_STACK
     config.task_stack = cyw43_async_context_freertos_task_stack;
 #endif
