@@ -40,6 +40,15 @@
 class PicoMail
 {
  private:
+  enum class ConnectionState
+  {
+    Idle,
+    Joining,
+    WaitingForIp,
+    WaitingForDhcp,
+    Backoff
+  };
+
  
   struct QueuedEmail
   {
@@ -77,7 +86,13 @@ class PicoMail
   static constexpr uint8_t  kMaxBusyRetries   = 3;
   static constexpr uint32_t kBusyRetryDelayMs = 200;
   static constexpr uint32_t kDnsRetryDelayMs  = 3000;
+  static constexpr uint32_t kClosedRetryDelayMs = 15000;
   static constexpr uint32_t kAuthRetryDelayMs = 300000;
+  static constexpr uint32_t kConnectJoinTimeoutMs = 10000;
+  static constexpr uint32_t kConnectIpTimeoutMs = 30000;
+  static constexpr uint32_t kConnectDhcpTimeoutMs = 15000;
+  static constexpr uint32_t kConnectPollIntervalMs = 50;
+  static constexpr uint32_t kConnectRetryBaseDelayMs = 2000;
 
  public:
   static std::atomic<uint8_t> m_emailSent;
@@ -109,6 +124,11 @@ class PicoMail
   uint16_t m_smtpPort = 0;
   char m_wifiSsid[33] = {};
   char m_wifiPassword[64] = {};
+  ConnectionState m_connectionState = ConnectionState::Idle;
+  uint32_t m_connectionStateStartMs = 0;
+  uint32_t m_nextConnectAttemptMs = 0;
+  bool m_forceDnsOnConnect = false;
+  bool m_staNetifRestored = false;
 
 public:
   PicoMail();
@@ -130,6 +150,7 @@ public:
   int ConnectWithCredentials(const char *ssid, const char *password, bool force_dns = false);
   int Connect();
   int Disconnect(bool hardDeinit = true);
+  bool PollConnection(bool forceDns = false);
   int SendEmail(const char *from, const char *to, const char *subject, const char *body);
   bool EnQueueEmail(const char *from, const char *to, const char *subject, const char *body);
   bool EnQueueGeneratorStatus(GeneratorEvent status);
@@ -160,6 +181,9 @@ public:
   void RefreshQueuedStatusTimestamp(QueuedEmail *email);
   static bool QueuedStatusNeedsTimestampRefresh(const QueuedEmail &email);
   static bool IsBusySmtpError(err_t err);
+  bool BeginConnectionAttempt(bool forceDns);
+  void FailConnectionAttempt(const char *reason, int errorCode, uint32_t retryDelayMs);
+  bool FinalizeConnectionSetup();
   bool EnQueueEmailAt(const char *from,
                      const char *to,
                      const char *subject,

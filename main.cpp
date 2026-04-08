@@ -41,12 +41,44 @@ static constexpr char kDefaultRecipientEmail[] = "csvanholm@comcast.net";
 static constexpr UBaseType_t kGeneratorTaskPriority = 3;
 static constexpr UBaseType_t kMailTaskPriority      = 2;
 static constexpr UBaseType_t kConsoleTaskPriority   = 1;
+#if PICO_RP2350
+static constexpr UBaseType_t kWatchdogTaskPriority  = ( configMAX_PRIORITIES - 1 );
+#else
 static constexpr UBaseType_t kWatchdogTaskPriority  = 4;
+#endif
 static constexpr uint8_t kGeneratorQueueDepth       = 32;
+#if PICO_RP2350
+static constexpr configSTACK_DEPTH_TYPE kGeneratorTaskStackDepth = 1536;
+static constexpr configSTACK_DEPTH_TYPE kMailTaskStackDepth = 3072;
+static constexpr configSTACK_DEPTH_TYPE kConsoleTaskStackDepth = 1536;
+static constexpr configSTACK_DEPTH_TYPE kWatchdogTaskStackDepth = 1536;
+#else
+static constexpr configSTACK_DEPTH_TYPE kGeneratorTaskStackDepth = 1024;
+static constexpr configSTACK_DEPTH_TYPE kMailTaskStackDepth = 2048;
+static constexpr configSTACK_DEPTH_TYPE kConsoleTaskStackDepth = 1024;
+static constexpr configSTACK_DEPTH_TYPE kWatchdogTaskStackDepth = 1024;
+#endif
 static constexpr uint32_t kGeneratorHeartbeatTimeoutMs = 5000;
+static constexpr uint32_t kMailHeartbeatTimeoutMs = 5000;
 static constexpr uint32_t kGeneratorStartupGraceMs = 10000;
+#if PICO_RP2350
+static constexpr uint32_t kMailTaskLoopDelayMs = 1;
+static constexpr uint32_t kOnboardBlinkPulseMs = 5;
+#else
 static constexpr uint32_t kMailTaskLoopDelayMs = 10;
+static constexpr uint32_t kOnboardBlinkPulseMs = 25;
+#endif
 static constexpr bool kVerboseRtosLogs = false;
+#if PICO_RP2350 && ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
+static constexpr UBaseType_t kRp2350NetworkCoreMask = (1u << 0);
+static constexpr UBaseType_t kRp2350ControlCoreMask = (1u << 1);
+#endif
+
+enum class RuntimeTaskClass
+{
+  Control,
+  Network
+};
 /**
  * Hardware watchdog timeout in milliseconds.
  * Must be longer than kGeneratorHeartbeatTimeoutMs to allow watchdog_task
@@ -61,6 +93,9 @@ static constexpr uint32_t kWatchdogPollPeriodMs = 250;
  * @brief Queue used to transfer generator events to the network-owning mail task.
  */
 static QueueHandle_t g_generatorEventQueue = NULL;
+#if PICO_RP2350 && defined(_PICO_W)
+static std::atomic<uint32_t> g_onboardBlinkUntilMs(0);
+#endif
 
 /**
  * @brief Requests that the network-owning runtime path start an NTP sync attempt.
@@ -73,14 +108,143 @@ static std::atomic<bool> g_ntpSyncRequested(false);
 static std::atomic<uint32_t> g_generatorHeartbeatMs(0);
 
 /**
+ * @brief Last observed mail-task heartbeat timestamp.
+ */
+static std::atomic<uint32_t> g_mailHeartbeatMs(0);
+
+/**
  * @brief Indicates at least one generator heartbeat has been observed.
  */
 static std::atomic<bool> g_generatorHeartbeatSeen(false);
 
 /**
+ * @brief Indicates at least one mail-task heartbeat has been observed.
+ */
+static std::atomic<bool> g_mailHeartbeatSeen(false);
+
+/**
  * @brief Indicates hardware watchdog has been armed.
  */
 static std::atomic<bool> g_watchdogArmed(false);
+
+static void runtime_delay_ms(uint32_t delayMs)
+{
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+  {
+    vTaskDelay(pdMS_TO_TICKS(delayMs));
+  } else
+  {
+    sleep_ms(delayMs);
+  }
+}
+
+/**
+ * @brief Requests a short onboard LED pulse.
+ */
+static void request_onboard_led_pulse()
+{
+#if PICO_RP2350 && defined(_PICO_W)
+  const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
+  const uint32_t newDeadlineMs = nowMs + kOnboardBlinkPulseMs;
+  uint32_t currentDeadlineMs = g_onboardBlinkUntilMs.load();
+  while ((currentDeadlineMs < newDeadlineMs) &&
+         !g_onboardBlinkUntilMs.compare_exchange_weak(currentDeadlineMs, newDeadlineMs))
+  {
+  }
+#endif
+}
+
+void pulse_onboard_led()
+{
+#if PICO_RP2350 && defined(_PICO_W)
+  request_onboard_led_pulse();
+#elif defined(_PICO_W)
+  if (is_wifi_stack_initialized())
+  {
+    cyw43_arch_gpio_put(LED_PIN, 1);
+    runtime_delay_ms(kOnboardBlinkPulseMs);
+    cyw43_arch_gpio_put(LED_PIN, 0);
+  }
+#else
+  gpio_put(LED_PIN, 1);
+  runtime_delay_ms(kOnboardBlinkPulseMs);
+  gpio_put(LED_PIN, 0);
+#endif
+}
+
+/**
+ * @brief Services requested onboard LED pulses from the network-owning task.
+ */
+void service_onboard_led_pulse()
+{
+#if PICO_RP2350 && defined(_PICO_W)
+  static bool lastBlinkActive = false;
+  static bool lastBlinkStateValid = false;
+  const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
+  const bool blinkActive = (nowMs < g_onboardBlinkUntilMs.load());
+  if (is_wifi_stack_initialized())
+  {
+    if (!lastBlinkStateValid || (blinkActive != lastBlinkActive))
+    {
+      cyw43_arch_gpio_put(LED_PIN, blinkActive ? 1 : 0);
+      lastBlinkActive = blinkActive;
+      lastBlinkStateValid = true;
+    }
+  } else
+  {
+    lastBlinkActive = false;
+    lastBlinkStateValid = false;
+  }
+#endif
+}
+
+/**
+ * @brief Creates a runtime task using a stable RP2350 core affinity when available.
+ * @param taskFunction Task entry point.
+ * @param taskName Human-readable task name.
+ * @param stackDepth Stack depth in words.
+ * @param taskParameter Parameter passed to the task.
+ * @param taskPriority FreeRTOS priority.
+ * @param taskClass Logical task placement used to select RP2350 core affinity.
+ * @param createdTask Optional task handle destination.
+ * @return pdPASS on success; otherwise an error code from the RTOS.
+ */
+static BaseType_t create_runtime_task(TaskFunction_t taskFunction,
+                                      const char *taskName,
+                                      const configSTACK_DEPTH_TYPE stackDepth,
+                                      void *taskParameter,
+                                      UBaseType_t taskPriority,
+                                      RuntimeTaskClass taskClass,
+                                      TaskHandle_t *createdTask)
+{
+#if PICO_RP2350 && ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
+  const UBaseType_t taskCoreMask = (taskClass == RuntimeTaskClass::Control)
+                                   ? kRp2350ControlCoreMask
+                                   : kRp2350NetworkCoreMask;
+  return xTaskCreateAffinitySet(taskFunction,
+                                taskName,
+                                stackDepth,
+                                taskParameter,
+                                taskPriority,
+                                taskCoreMask,
+                                createdTask);
+#else
+  (void)taskClass;
+  return xTaskCreate(taskFunction,
+                     taskName,
+                     stackDepth,
+                     taskParameter,
+                     taskPriority,
+                     createdTask);
+#endif
+}
+
+static void log_runtime_task_affinity()
+{
+#if PICO_RP2350 && ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
+  printf("[RTOS] RP2350 mail/watchdog/console pinned to core 0; generator pinned to core 1.\n");
+#endif
+}
 
 /**
  * @brief Initializes the board LED when using a GPIO-backed target.
@@ -323,6 +487,8 @@ static void generator_task(void *param)
   Generator generator(queue_event_sink, eventQueue);
   while (true)
   {
+    g_generatorHeartbeatMs.store(to_ms_since_boot(get_absolute_time()));
+    g_generatorHeartbeatSeen.store(true);
     generator.RunOneTick();
     g_generatorHeartbeatMs.store(to_ms_since_boot(get_absolute_time()));
     g_generatorHeartbeatSeen.store(true);
@@ -334,19 +500,20 @@ static void generator_task(void *param)
  * @brief RTOS task that supervises generator heartbeat and feeds hardware watchdog.
  * @param param Unused.
  *
- * This task is the sole driver of the hardware watchdog. It monitors the generator
- * task heartbeat (updated by generator_task after each RunOneTick) and only feeds
- * the watchdog when the heartbeat is current (not stale). If the generator task
- * hangs or blocks for too long, the watchdog will detect stale heartbeat, stop feeding,
- * and allow the hardware timeout to expire, triggering a device reset.
+ * This task is the sole driver of the hardware watchdog. It monitors both the
+ * generator task heartbeat and the network-owning mail task heartbeat and only
+ * feeds the watchdog when both are current. If either task hangs or blocks for
+ * too long, the watchdog will detect stale heartbeat, stop feeding, and allow
+ * the hardware timeout to expire, triggering a device reset.
  *
- * The watchdog is not armed until the generator task publishes its first real
+ * The watchdog is not armed until both supervised tasks publish their first real
  * heartbeat. This avoids treating task startup ordering as a liveness failure.
- * If no initial heartbeat arrives within kGeneratorStartupGraceMs, the system
- * forces a reboot rather than running indefinitely without supervision.
+ * If the initial heartbeats do not arrive within kGeneratorStartupGraceMs, the
+ * system forces a reboot rather than running indefinitely without supervision.
  *
  * Initial heartbeat grace timeout: kGeneratorStartupGraceMs (10000 ms)
- * Heartbeat age threshold: kGeneratorHeartbeatTimeoutMs (5000 ms)
+ * Generator heartbeat age threshold: kGeneratorHeartbeatTimeoutMs (5000 ms)
+ * Mail heartbeat age threshold: kMailHeartbeatTimeoutMs (5000 ms)
  * Hardware timeout: kWatchdogHardwareTimeoutMs (8000 ms)
  * Watchdog poll period: kWatchdogPollPeriodMs (250 ms)
  */
@@ -355,12 +522,12 @@ static void watchdog_task(void *param)
   (void)param;
 
   const uint32_t startupWaitStartMs = to_ms_since_boot(get_absolute_time());
-  while (!g_generatorHeartbeatSeen.load())
+  while (!g_generatorHeartbeatSeen.load() || !g_mailHeartbeatSeen.load())
   {
     const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
     if ((nowMs - startupWaitStartMs) > kGeneratorStartupGraceMs)
     {
-      printf("[WDT] No initial generator heartbeat within %lu ms. Rebooting...\n",
+      printf("[WDT] Initial supervised-task heartbeat missing within %lu ms. Rebooting...\n",
              (unsigned long)kGeneratorStartupGraceMs);
       watchdog_reboot(0, 0, 0);
       vTaskSuspend(NULL);
@@ -371,33 +538,71 @@ static void watchdog_task(void *param)
 
   watchdog_enable(kWatchdogHardwareTimeoutMs, true);
   g_watchdogArmed.store(true);
-  printf("[WDT] Armed after first generator heartbeat (timeout=%lu ms, generator heartbeat timeout=%lu ms).\n",
+    printf("[WDT] Armed after generator/mail heartbeats (timeout=%lu ms, generator=%lu ms, mail=%lu ms).\n",
          (unsigned long)kWatchdogHardwareTimeoutMs,
-         (unsigned long)kGeneratorHeartbeatTimeoutMs);
+      (unsigned long)kGeneratorHeartbeatTimeoutMs,
+      (unsigned long)kMailHeartbeatTimeoutMs);
 
   while (true)
   {
     const uint32_t nowMs = to_ms_since_boot(get_absolute_time());
-    const bool seenHeartbeat = g_generatorHeartbeatSeen.load();
-    const uint32_t lastHeartbeatMs = g_generatorHeartbeatMs.load();
+    const bool generatorSeenHeartbeat = g_generatorHeartbeatSeen.load();
+    const bool mailSeenHeartbeat = g_mailHeartbeatSeen.load();
+    const uint32_t lastGeneratorHeartbeatMs = g_generatorHeartbeatMs.load();
+    const uint32_t lastMailHeartbeatMs = g_mailHeartbeatMs.load();
 
     bool generatorHealthy = true;
-    if (seenHeartbeat)
+    if (generatorSeenHeartbeat)
     {
-      generatorHealthy = ((nowMs - lastHeartbeatMs) <= kGeneratorHeartbeatTimeoutMs);
+      generatorHealthy = ((nowMs - lastGeneratorHeartbeatMs) <= kGeneratorHeartbeatTimeoutMs);
     }
 
-    if (generatorHealthy)
+    bool mailHealthy = true;
+    if (mailSeenHeartbeat)
+    {
+      mailHealthy = ((nowMs - lastMailHeartbeatMs) <= kMailHeartbeatTimeoutMs);
+    }
+
+    if (generatorHealthy && mailHealthy)
     {
       watchdog_update();
     } else
     {
-      // Do not feed while generator heartbeat appears stale.
-      printf("[WDT] Generator heartbeat stale (%lu ms). Waiting for watchdog reset...\n",
-             (unsigned long)(nowMs - lastHeartbeatMs));
+      if (!generatorHealthy)
+      {
+        printf("[WDT] Generator heartbeat stale (%lu ms). Waiting for watchdog reset...\n",
+               (unsigned long)(nowMs - lastGeneratorHeartbeatMs));
+      }
+      if (!mailHealthy)
+      {
+        printf("[WDT] Mail heartbeat stale (%lu ms). Waiting for watchdog reset...\n",
+               (unsigned long)(nowMs - lastMailHeartbeatMs));
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(kWatchdogPollPeriodMs));
+  }
+}
+
+extern "C" void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+  (void)xTask;
+  printf("[RTOS] Stack overflow detected in task '%s'. Rebooting...\n",
+         (pcTaskName != NULL) ? pcTaskName : "<unknown>");
+  watchdog_reboot(0, 0, 0);
+  while (true)
+  {
+    tight_loop_contents();
+  }
+}
+
+extern "C" void vApplicationMallocFailedHook(void)
+{
+  printf("[RTOS] Heap allocation failed. Rebooting...\n");
+  watchdog_reboot(0, 0, 0);
+  while (true)
+  {
+    tight_loop_contents();
   }
 }
 
@@ -418,8 +623,6 @@ static void mail_task(void *param)
   // splitting reconnect, NTP, and outbox flushing across multiple tasks is unsafe.
   PicoMail *mail = static_cast<PicoMail *>(param);
   uint32_t bootMs = to_ms_since_boot(get_absolute_time());
-  uint32_t tickCounter = 0;
-  static constexpr uint32_t kReconnectPeriodTicks = 60;
   bool wasConnected = mail->IsConnected();
   bool wasNtpSynced = is_ntp_synced();
   uint8_t lastOutboxCount = mail->GetOutboxCount();
@@ -433,6 +636,11 @@ static void mail_task(void *param)
 
   while (true)
   {
+    g_mailHeartbeatMs.store(to_ms_since_boot(get_absolute_time()));
+    g_mailHeartbeatSeen.store(true);
+
+    service_onboard_led_pulse();
+
     GeneratorEventMessage firstEvent;
     const BaseType_t hasEvent = xQueueReceive(g_generatorEventQueue, &firstEvent, 0);
     if (hasEvent == pdTRUE)
@@ -440,7 +648,7 @@ static void mail_task(void *param)
       (void)mail->EnQueueGeneratorStatus(firstEvent.eventCode, firstEvent.timestampMs);
     }
 
-    const bool isConnected = mail->IsConnected();
+    const bool isConnected = mail->PollConnection();
     const bool isNtpSynced = is_ntp_synced();
     const uint8_t outboxCount = mail->GetOutboxCount();
     if (isConnected && !wasConnected)
@@ -493,23 +701,13 @@ static void mail_task(void *param)
 
     (void)poll_ntp_sync();
 
-    if (mail->GetOutboxCount() > 0)
+    if (isConnected && (mail->GetOutboxCount() > 0))
     {
-      if (!mail->IsConnected() && ((tickCounter % kReconnectPeriodTicks) == 0u))
-      {
-        if (kVerboseRtosLogs)
-        {
-          printf("Pending email exists while disconnected. Attempting reconnect...\n");
-        }
-        if (mail->Connect() == 0)
-        {
-          g_ntpSyncRequested.store(true);
-        }
-      }
       (void)mail->FlushOutbox();
     }
 
-    tickCounter++;
+    g_mailHeartbeatMs.store(to_ms_since_boot(get_absolute_time()));
+    g_mailHeartbeatSeen.store(true);
     vTaskDelay(pdMS_TO_TICKS(kMailTaskLoopDelayMs));
   }
 }
@@ -612,29 +810,55 @@ int main()
   vQueueAddToRegistry(g_generatorEventQueue, "GenEventQ");
 #endif
 
-  if (xTaskCreate(generator_task, "Generator", 1024, g_generatorEventQueue, kGeneratorTaskPriority, NULL) != pdPASS)
+  if (create_runtime_task(generator_task,
+                          "Generator",
+                          kGeneratorTaskStackDepth,
+                          g_generatorEventQueue,
+                          kGeneratorTaskPriority,
+                          RuntimeTaskClass::Control,
+                          NULL) != pdPASS)
   {
     printf("Failed to create generator task.\n");
     return -1;
   }
 
-  if (xTaskCreate(mail_task, "Mail", 2048, picoMail, kMailTaskPriority, NULL) != pdPASS)
+  if (create_runtime_task(mail_task,
+                          "Mail",
+                          kMailTaskStackDepth,
+                          picoMail,
+                          kMailTaskPriority,
+                          RuntimeTaskClass::Network,
+                          NULL) != pdPASS)
   {
     printf("Failed to create mail task.\n");
     return -1;
   }
 
-  if (xTaskCreate(console_task, "Console", 1024, picoMail, kConsoleTaskPriority, NULL) != pdPASS)
+  if (create_runtime_task(console_task,
+                          "Console",
+                          kConsoleTaskStackDepth,
+                          picoMail,
+                          kConsoleTaskPriority,
+                          RuntimeTaskClass::Network,
+                          NULL) != pdPASS)
   {
     printf("Failed to create console task.\n");
     return -1;
   }
 
-  if (xTaskCreate(watchdog_task, "Watchdog", 1024, NULL, kWatchdogTaskPriority, NULL) != pdPASS)
+  if (create_runtime_task(watchdog_task,
+                          "Watchdog",
+                          kWatchdogTaskStackDepth,
+                          NULL,
+                          kWatchdogTaskPriority,
+                          RuntimeTaskClass::Network,
+                          NULL) != pdPASS)
   {
     printf("Failed to create watchdog task.\n");
     return -1;
   }
+
+  log_runtime_task_affinity();
 
   printf("[RTOS] Tasks created, starting scheduler...\n");
   vTaskStartScheduler();

@@ -3,9 +3,6 @@
 #include "generator_controller.h"
 
 #include "pico/stdlib.h"
-#include "pico/cyw43_arch.h"
-
-extern bool is_wifi_stack_initialized();
 
 extern "C" 
 {
@@ -14,6 +11,8 @@ extern "C"
 }
 
 #include <cstdio>
+
+extern void pulse_onboard_led();
 
 #define USING_LED_RESISTORS
 
@@ -44,30 +43,6 @@ namespace
    }
  }
 
-#ifdef _PICO_W
- const uint ONBOARD_LED_PIN = 0;
-#else
- const uint ONBOARD_LED_PIN = 25;
-#endif
-
- /**
-  * @brief Generates a short heartbeat pulse on the board LED.
-  */
- static void PulseOnboardLed()
- {
-#ifdef _PICO_W
-   if (is_wifi_stack_initialized())
-   {
-     cyw43_arch_gpio_put(ONBOARD_LED_PIN, 1);
-     DelayMs(5);
-     cyw43_arch_gpio_put(ONBOARD_LED_PIN, 0);
-   }
-#else
-   gpio_put(ONBOARD_LED_PIN, 1);
-   DelayMs(5);
-   gpio_put(ONBOARD_LED_PIN, 0);
-#endif
- }
 }
 
 
@@ -133,7 +108,7 @@ void Generator::Led(uint id, bool state)
 
 void Generator::AliveBlink()
 {
-  PulseOnboardLed();
+  pulse_onboard_led();
 
   if (m_coolDownCounter > 0)
   {
@@ -162,7 +137,7 @@ void Generator::AliveBlink()
 
 void Generator::BlinkFailure()
 {
-  PulseOnboardLed();
+  pulse_onboard_led();
 
   bool state = true;
   for (int i = 0; i < 10; ++i)

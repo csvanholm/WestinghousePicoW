@@ -112,6 +112,10 @@ endif()
 add_executable(${PROJECT_NAME} 
     main.cpp
     mail_service.cpp
+    mail_service_connect.cpp
+    mail_service_delivery.cpp
+    mail_service_queue.cpp
+    mail_service_time.cpp
     generator_controller.cpp
 )
 
@@ -147,6 +151,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         LWIP_HTTPD_SSI_INCLUDE_TAG=0
         HTTPD_FSDATA_FILE=\"my_fsdata.c\"
   )  
+
+if(PICO_PLATFORM MATCHES "^rp2350")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        CYW43_TASK_PRIORITY=3
+        CYW43_TASK_STACK_SIZE=1536
+    )
+endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE USE_FREERTOS_APP=1)
 

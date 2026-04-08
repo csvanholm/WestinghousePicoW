@@ -2,6 +2,7 @@
 # Build outputs and caches
 # -----------------------------
 build/
+build-debug/
 build-rp2350/
 cmake-build-*/
 CMakeFiles/
