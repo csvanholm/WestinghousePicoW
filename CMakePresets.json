@@ -1,0 +1,85 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "PICO_MAIL_USE_LOCAL_SDK": "ON"
+      }
+    },
+    {
+      "name": "rp2040-release",
+      "displayName": "RP2040 Release",
+      "description": "Configure a Pico W RP2040 release build in build/.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PICO_BOARD": "pico_w"
+      }
+    },
+    {
+      "name": "rp2040-debug",
+      "displayName": "RP2040 Debug",
+      "description": "Configure a Pico W RP2040 debug build in build-debug/.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "PICO_BOARD": "pico_w"
+      }
+    },
+    {
+      "name": "rp2350-release",
+      "displayName": "RP2350 Release",
+      "description": "Configure a Pico 2 W RP2350 release build in build-rp2350/.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-rp2350",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PICO_BOARD": "pico2_w"
+      }
+    },
+    {
+      "name": "rp2350-debug",
+      "displayName": "RP2350 Debug",
+      "description": "Configure a Pico 2 W RP2350 debug build in build-rp2350-debug/.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-rp2350-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "PICO_BOARD": "pico2_w"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-rp2040-release",
+      "displayName": "Build RP2040 Release",
+      "configurePreset": "rp2040-release"
+    },
+    {
+      "name": "build-rp2040-debug",
+      "displayName": "Build RP2040 Debug",
+      "configurePreset": "rp2040-debug"
+    },
+    {
+      "name": "build-rp2350-release",
+      "displayName": "Build RP2350 Release",
+      "configurePreset": "rp2350-release"
+    },
+    {
+      "name": "build-rp2350-debug",
+      "displayName": "Build RP2350 Debug",
+      "configurePreset": "rp2350-debug"
+    }
+  ]
+}

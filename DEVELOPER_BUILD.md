@@ -1,51 +1,77 @@
-# PicoMail Developer Build (Forked SDK)
+# PicoMail Developer Build
 
-This project supports a pinned forked Pico SDK for reproducible builds across developers.
+This project is meant to build from a normal repository clone with the vendored SDK already included under `third_party/pico-sdk`.
 
-## 1) Create and publish your SDK fork (one-time, maintainer)
+## 1) Canonical SDK source
 
-1. Fork `raspberrypi/pico-sdk`.
-2. Create branch from `2.2.0`.
-3. Commit your SDK-side fix in:
-   - `src/rp2_common/pico_lwip/altcp_tls_mbedtls.c`
-4. Fork the lwIP repo used by pico-sdk and commit your lwIP fix in:
-   - `lib/lwip/src/apps/smtp/smtp.c`
-5. In your SDK fork, update `lib/lwip` submodule pointer to your lwIP commit.
-6. Tag the SDK fork commit, for example: `v2.2.0-picomail.1`.
+- The authoritative SDK source for this repo is `third_party/pico-sdk`.
+- `CMakeLists.txt` prefers that vendored tree automatically when it exists.
+- The files under `sdk-overrides/files/` are mirror copies and optional fallback patch sources.
+- Editing only the mirror files does not change the normal firmware build.
 
 ## 2) Teammate setup (per machine)
 
-From project root in PowerShell:
+Expected user workflow:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File ./sdk-overrides/setup_forked_sdk.ps1 \
-  -SdkForkUrl "https://github.com/<your-user>/pico-sdk.git" \
-  -SdkTag "v2.2.0-picomail.1"
-```
+- Clone the repository normally.
+- Import it with the Raspberry Pi Pico VS Code extension.
+- Let the Pico extension manage or install the required toolchain components if they are missing.
 
-This clones the pinned SDK to `third_party/pico-sdk`.
+Important:
+- The active build compiles against `third_party/pico-sdk`.
+- The Pico extension can manage the toolchain, but it does not replace the vendored SDK source inside this repository.
+- If SMTP/TLS behavior regresses, verify the compiled SDK sources under `third_party/pico-sdk` first.
 
 ## 3) Build
 
 After setup, use normal VS Code tasks:
 
-- `Apply + Compile Project` (or `Compile Project`)
-- `Flash`
+- `Compile Project` for the RP2040 `build/` tree
+- `Configure Project (RP2040 Preset)` and `Configure Project (RP2350 Preset)` to create the target-specific build folders
+- `Compile Project (RP2350)` for the RP2350 `build-rp2350/` tree
+- `Run Project` or `Run Project (RP2350)` to load the matching UF2
+- `Flash` for the OpenOCD flow
+
+For side-by-side target builds from the same code base, use the repo presets:
+
+```powershell
+cmake --preset rp2040-release
+cmake --build --preset build-rp2040-release
+
+cmake --preset rp2350-release
+cmake --build --preset build-rp2350-release
+```
+
+This keeps RP2040 output in `build/` and RP2350 output in `build-rp2350/`.
 
 Wi-Fi and SMTP credentials are provisioned at runtime through the setup portal (AP mode), not through CMake build variables.
 
+The bootstrap script configures both build directories without requiring local credential files.
+
 `CMakeLists.txt` automatically prefers `third_party/pico-sdk` when present.
+
+Postmortem note:
+- A real SMTP/TLS failure was traced to the bundled SDK being built without the effective `ALTCP_MBEDTLS_CLIENT_PROFILE` implementation in its compiled `altcp_tls_mbedtls.c`.
+- The project config in `lwipopts.h` still enabled that profile, so the build looked correct at a glance while the active SDK source was not.
+- The lasting fix was to restore the TLS profile logic in the compiled bundled SDK and keep the compiled SMTP source aligned with the TLS hostname/SNI fix.
 
 ## 4) Distribution model
 
 - Distribute this app repository.
-- Do not copy full SDK sources into app source folders.
-- Keep SDK changes in your SDK fork + tag.
-- Bump tag (`v2.2.0-picomail.2`, etc.) when SDK-side fixes change.
+- Keep `third_party/pico-sdk` committed in the repository.
+- Update SDK-side fixes in that vendored tree first.
+- Keep `sdk-overrides/files` only as fallback mirrors when needed.
+- Run the SDK drift check before commit when touching SDK-side files.
+
+Drift check command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/check_sdk_sync.ps1
+```
 
 ## 5) Existing override fallback
 
-If a teammate cannot use the fork immediately, these scripts still work against a compatible SDK path:
+If someone intentionally builds against another compatible SDK path, these scripts still work as a fallback:
 
 - `sdk-overrides/apply_overrides.ps1`
 - `sdk-overrides/revert_overrides.ps1`
@@ -56,22 +82,9 @@ For publishing future SDK tags (`v2.2.0-picomail.N`) and update validation, foll
 
 - `RELEASE_CHECKLIST.md`
 
-### Source redistribution with submodules
+### Release archives
 
-If you release source bundles and any repository in your dependency chain uses git submodules, create release assets from a recursive checkout.
-
-```powershell
-git clone --recurse-submodules <repo-url> release-src
-cd release-src
-git submodule update --init --recursive
-git submodule status --recursive
-Compress-Archive -Path * -DestinationPath ..\WestinghouseRTOSDev-src-with-submodules.zip -Force
-```
-
-Why this step exists:
-
-- Provider-generated source archives are often missing materialized submodule files.
-- A zip created from the recursive working tree ensures third parties receive complete build inputs.
+If you publish source releases, create the archive from a checked-out working tree so consumers receive the vendored SDK and other tracked build inputs exactly as tested.
 
 ## 7) Debug launch notes (RP2040 and RP2350)
 

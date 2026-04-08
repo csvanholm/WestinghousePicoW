@@ -6,6 +6,14 @@ Date: 2026-02-25
 
 This project required SDK-level patches because the failing behavior occurred inside lwIP + mbedTLS integration code (Pico SDK/lwIP), not only in application code.
 
+Postmortem note from 2026-04-07:
+- The decisive root cause was not bad SMTP credentials or a generic network problem.
+- The real build was using the bundled SDK under `third_party/pico-sdk`, while some expected fixes existed only in the override mirror or historical notes.
+- That meant the firmware was being built without the effective TLS client-profile fix in the compiled `altcp_tls_mbedtls.c`, even though `lwipopts.h` still enabled `ALTCP_MBEDTLS_CLIENT_PROFILE 1`.
+- Once the compiled SDK copy was corrected, and the compiled SMTP source also set TLS hostname/SNI, Gmail SMTPS worked again.
+
+Separate from that root cause, RP2350 also needed runtime fixes for safe CYW43/LED ownership and task stability. Those issues were real, but they were not the underlying reason Gmail SMTPS was failing.
+
 After patching:
 - TLS handshake and SMTP transaction became stable with Gmail SMTPS (`smtp.gmail.com:465`).
 - Build/flash path is reproducible.
@@ -21,6 +29,11 @@ Application code can configure SMTP host/auth and call into lwIP SMTP APIs, but 
 2. SMTP TLS session setup details in lwIP SMTP implementation.
 
 Those are implemented in SDK/lwIP source, so fixing only app-level code would not fully solve the failures.
+
+Important build-path clarification:
+- In this repository, the files under `sdk-overrides/files/...` are mirrors/fallback inputs, not proof that the active firmware build contains the same logic.
+- The actual build path currently prefers `third_party/pico-sdk` via `CMakeLists.txt`.
+- If a fix is applied only to the override mirror and not to the bundled SDK source tree, the firmware can still be built with the broken behavior.
 
 ## 3) Files changed and what each change does
 
@@ -88,9 +101,15 @@ Symptoms:
 Contributing factors:
 - Embedded stack interoperability with server-side TLS policy/ciphersuite negotiation.
 - Need for deterministic client profile and TLS hostname handling.
+- The compiled SDK copy had drifted from the intended patched state, so the active firmware was missing the TLS profile logic even though project config still expected it.
 
 Resolution:
 - SDK TLS glue ciphersuite/profile control + SMTP TLS hostname setup.
+
+Most direct root cause summary:
+- `lwipopts.h` requested `ALTCP_MBEDTLS_CLIENT_PROFILE 1`.
+- The compiled bundled SDK copy of `altcp_tls_mbedtls.c` did not contain the corresponding client-profile implementation.
+- Therefore the setting was effectively ignored at runtime, and TLS negotiation failed before SMTP banner/auth flow.
 
 ### 4.2 Runtime observability gaps
 Symptoms:

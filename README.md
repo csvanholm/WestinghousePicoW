@@ -39,19 +39,28 @@ RP2040/RP2350 Pico-W or Pico2-W firmware project with SMTP-related networking up
 ## Repository Layout
 
 - `main.cpp`      : main application source
+- `third_party/pico-sdk/`: vendored Pico SDK source used by normal builds
 - `sdk-overrides/`: scripts and override files for SDK customization
 - `docs/Hardware/`: hardware reference documents
 - `CMakeLists.txt`: project build definition
 
 ## Prerequisites
 
-- VS Code with Raspberry Pi Pico extension/toolchain installed
-- import it as a raspberry pico project and select your pico type
-- Pico SDK/toolchain configured in your environment
+- VS Code with the Raspberry Pi Pico extension
+- import it as a Raspberry Pi Pico project and select your target board
+- the Pico extension should install or assign the required toolchain components if they are not already present on the machine
 - `cmake plugin` is recomended to select build type debug,release compiler ect.
 - `ninja` available via the Pico toolchain path
 - `perl` must be installed in order to rebuild the html content
 -  can be downloaded here  https://strawberryperl.com/
+
+## Canonical SDK Source
+
+Normal builds in this repository use the vendored SDK tree in `third_party/pico-sdk`.
+
+- This repository is intended to be self-contained at the source level after a normal `git clone`.
+- The files under `sdk-overrides/files` are mirror copies and fallback patch sources, not the primary build input.
+- If you change SDK-side TLS or SMTP behavior, update `third_party/pico-sdk` first.
 ## Runtime Configuration
 
 Wi-Fi and SMTP credentials are configured at runtime through the Pico W setup portal.
@@ -77,9 +86,36 @@ Windows task paths resolve under `%USERPROFILE%\.pico-sdk\...`.
 
 Use the built-in tasks in this workspace:
 
-1. `Compile Project`
-2. `Run Project` (UF2 load via `picotool`)
-3. `Flash` (OpenOCD-based programming)
+1. `Compile Project` builds the RP2040 Pico W binary from `build/`
+2. `Run Project` loads the active launch target with `picotool`
+3. `Configure Project (RP2040 Preset)` configures `build/`
+4. `Configure Project (RP2350 Preset)` configures `build-rp2350/`
+5. `Compile Project (RP2350)` builds the Pico 2 W binary from `build-rp2350/`
+6. `Run Project (RP2350)` loads `build-rp2350/westinghouse_wifi_rtos.uf2`
+7. `Flash` runs the OpenOCD-based programming flow
+
+The Pico extension's generated [CMakeLists.txt](/home/pi/pico/dummy/WestinghousePicoW/CMakeLists.txt) currently defaults `PICO_BOARD` to `pico2_w`, so presets or the explicit configure tasks are the safest way to select the target build directory you want.
+
+## CMake Presets
+
+The repository now includes target-specific presets so RP2040 and RP2350 can be built from the same source tree without reusing the same build directory.
+
+Configure or build with CMake directly:
+
+```powershell
+cmake --preset rp2040-release
+cmake --build --preset build-rp2040-release
+
+cmake --preset rp2350-release
+cmake --build --preset build-rp2350-release
+```
+
+Preset layout:
+
+- `rp2040-release` uses `PICO_BOARD=pico_w` and `build/`
+- `rp2040-debug` uses `PICO_BOARD=pico_w` and `build-debug/`
+- `rp2350-release` uses `PICO_BOARD=pico2_w` and `build-rp2350/`
+- `rp2350-debug` uses `PICO_BOARD=pico2_w` and `build-rp2350-debug/`
 
 ## One-Step Bootstrap
 
@@ -95,16 +131,24 @@ This performs:
 2. RP2040 configure in `build/`
 3. RP2350 configure in `build-rp2350/`
 
+It does not require Wi-Fi or SMTP credentials up front. Those are provisioned later through the setup portal and stored in device flash.
+
 ## Build And Flash (Command Line)
 
 From repository root:
 
 ```powershell
-# Build
+# Build RP2040
 $env:USERPROFILE/.pico-sdk/ninja/v1.12.1/ninja.exe -C .\build
 
-# Load UF2 (same action as "Run Project" task)
-$env:USERPROFILE/.pico-sdk/picotool/2.2.0-a4/picotool/picotool.exe load .\build\westinghouse_RTOS_wifi.uf2 -fx
+# Build RP2350
+$env:USERPROFILE/.pico-sdk/ninja/v1.12.1/ninja.exe -C .\build-rp2350
+
+# Load RP2040 UF2
+$env:USERPROFILE/.pico-sdk/picotool/2.2.0-a4/picotool/picotool.exe load .\build\westinghouse_wifi_rtos.uf2 -fx
+
+# Load RP2350 UF2
+$env:USERPROFILE/.pico-sdk/picotool/2.2.0-a4/picotool/picotool.exe load .\build-rp2350\westinghouse_wifi_rtos.uf2 -fx
 ```
 
 OpenOCD flash command (same action as `Flash` task) is configured in `.vscode/tasks.json`.
@@ -113,9 +157,16 @@ OpenOCD flash command (same action as `Flash` task) is configured in `.vscode/ta
 
 Use scripts in `sdk-overrides/`:
 
-- `setup_forked_sdk.ps1`
 - `apply_overrides.ps1`
 - `revert_overrides.ps1`
+
+For maintainers, verify the mirror copies have not drifted from the vendored SDK with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/check_sdk_sync.ps1
+```
+
+The override scripts are only for intentionally patching some other compatible SDK tree. They are not part of the normal clone/import/build workflow for this repository.
 
 See `sdk-overrides/README.md` for details.
 
@@ -125,61 +176,16 @@ See `sdk-overrides/README.md` for details.
 - Release checklist: `RELEASE_CHECKLIST.md`
 - Patch reports: `PATCH_REPORT.md`, `PATCH_REPORT_EXEC_SUMMARY.md`
 
-## Redistribution With Submodules
+## Distribution Model
 
-If this repository (or a dependency repository you publish) uses git submodules, distribute it with submodule-safe steps so downstream users get complete sources.
+This repository is intended to be consumed as a normal clone with complete source inputs already present.
 
-For source users:
+- Keep `third_party/pico-sdk` committed and in sync with any SDK-side fixes.
+- Keep `.vscode/`, presets, and build scripts tracked when they are part of the intended developer workflow.
+- Treat `sdk-overrides/files` as fallback mirrors only.
+- When making SDK-side edits, run `scripts/check_sdk_sync.ps1` before committing.
 
-```powershell
-git clone --recurse-submodules <repo-url>
-cd <repo-folder>
-git submodule update --init --recursive
-```
-
-For maintainers creating release archives:
-
-```powershell
-# 1) Create a clean recursive checkout
-git clone --recurse-submodules <repo-url> release-src
-cd release-src
-
-# 2) Optional sanity check
-git submodule status --recursive
-
-# 3) Create a zip that includes submodule contents
-Compress-Archive -Path * -DestinationPath ..\WestinghouseRTOSDev-src-with-submodules.zip -Force
-```
-
-Notes:
-
-- Git hosting provider auto-generated "Source code (zip/tar.gz)" archives may omit populated submodule content.
-- Upload your own generated zip as a release asset when you need a complete, buildable source drop.
-
-## Publish A Complete GitHub Repository
-
-If you want this repository to be self-contained and reproducible for collaborators:
-
-1. Add the Pico SDK fork as a pinned submodule at `third_party/pico-sdk`.
-2. Commit tracked VS Code workspace files under `.vscode/`.
-3. Keep machine-local debug or tooling settings untracked.
-4. Push with submodule metadata.
-
-Example maintainer commands (fresh repo):
-
-```powershell
-git submodule add -b v2.2.0-picomail.1 https://github.com/<your-user>/pico-sdk.git third_party/pico-sdk
-git add .gitmodules third_party/pico-sdk .vscode .github/workflows/ci.yml scripts/bootstrap.ps1
-git commit -m "Make repository reproducible with pinned SDK and bootstrap flow"
-git push -u origin main
-```
-
-If `third_party/pico-sdk` already exists and you later create your own fork, switch URL with:
-
-```powershell
-git submodule set-url third_party/pico-sdk https://github.com/<your-user>/pico-sdk.git
-git submodule sync --recursive
-```
+For release archives, create a zip from the checked-out working tree instead of relying on generated hosting-provider source archives.
 
 ## License
 
