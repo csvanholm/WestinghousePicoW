@@ -1,3 +1,15 @@
+/**
+ * @file dhcp_server.c
+ * @brief DHCP lease allocator used while the Wi-Fi setup access point is active.
+ *
+ * Purpose:
+ * - handles DHCPDISCOVER and DHCPREQUEST traffic from clients connecting to the configuration AP
+ * - assigns the local setup network address range and returns lease metadata to the client
+ *
+ * Relationships:
+ * - dhcp_server.h declares the lease and server state used by this implementation
+ * - access_point.c activates the DHCP service while the device is operating in provisioning mode
+ */
 /*
  * This file is part of the MicroPython project, http://micropython.org/
  *

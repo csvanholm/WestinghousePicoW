@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service_connect.cpp
+ * @brief Wi-Fi bring-up, reconnect, and network-state transitions for the mail subsystem.
+ *
+ * Purpose:
+ * - initializes lwIP/CYW43 networking on demand
+ * - connects the Pico to the configured Wi-Fi SSID
+ * - restores network defaults, handles DNS fallback, and manages retry timing after failures
+ *
+ * Relationships:
+ * - mail_service.cpp owns the high-level state flow and calls into these connection helpers
+ * - mail_service_delivery.cpp depends on this connection state being valid before SMTP sends start
+ * - main.cpp indirectly depends on this file because runtime health and mail notifications require a working network path
+ */
 
 #include "mail_service_internal.h"
 

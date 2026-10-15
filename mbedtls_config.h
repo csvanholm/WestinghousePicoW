@@ -1,3 +1,15 @@
+/**
+ * @file mbedtls_config.h
+ * @brief mbed TLS configuration used for secure SMTP and network communication.
+ *
+ * Purpose:
+ * - enables the TLS primitives required by the lwIP SMTP client path
+ * - configures the supported cipher and key-exchange options for secure message delivery
+ *
+ * Relationships:
+ * - mail_service_delivery.cpp and the lwIP altcp TLS path consume this configuration during SMTP send attempts
+ * - the network stack uses the enabled TLS features to authenticate and encrypt mail delivery over the configured SMTP server
+ */
 #ifndef _MBEDTLS_CONFIG_H
 #define _MBEDTLS_CONFIG_H
 

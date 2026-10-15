@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service_queue.cpp
+ * @brief Outbox queue storage and timestamp management for pending e-mails.
+ *
+ * Purpose:
+ * - enqueues generated messages and generator status reports in a fixed-capacity ring buffer
+ * - exposes helpers to peek, pop, retry, and refresh queued status messages
+ * - preserves email metadata required for later SMTP delivery attempts
+ *
+ * Relationships:
+ * - mail_service_delivery.cpp reads the outbox and sends the next queued email
+ * - mail_service.cpp uses queue logic for validation and end-to-end delivery coordination
+ * - main.cpp indirectly depends on this queue to ensure event-driven notifications are not lost during network outages
+ */
 
 #include "mail_service_internal.h"
 
@@ -68,6 +82,7 @@ bool PicoMail::EnQueueGeneratorStatus(GeneratorEvent statusCode, uint32_t eventT
   char msg[512];
   if (get_local_time(time, sizeof(time), date, sizeof(date)) == -1)
   {
+    printf("Failed to get local time\n");
   } else
   {
     printf("NIST Synced Time [%s %s]\n", time, date);

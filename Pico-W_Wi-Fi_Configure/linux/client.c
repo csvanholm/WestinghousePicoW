@@ -1,3 +1,15 @@
+/**
+ * @file client.c
+ * @brief Simple Linux TCP client used to test the example server in the setup-network environment.
+ *
+ * Purpose:
+ * - opens a socket to the configured target host and port
+ * - sends text messages to verify that the local setup server accepts connections and echoes responses
+ *
+ * Relationships:
+ * - the server under test is implemented in tcp_test_server.c and exposed through tcp_test_server.h
+ * - this helper is useful during Wi-Fi setup validation before the embedded configuration flow is committed to flash
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

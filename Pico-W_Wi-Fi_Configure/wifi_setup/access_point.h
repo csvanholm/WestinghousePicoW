@@ -1,4 +1,16 @@
 /**
+ * @file access_point.h
+ * @brief Access-point configuration contract for the setup portal and runtime credential storage.
+ *
+ * Purpose:
+ * - defines the flash-backed configuration structure used to store Wi-Fi and SMTP settings
+ * - declares the setup-mode helpers used by the AP portal and runtime boot flow
+ *
+ * Relationships:
+ * - main.c and access_point.c use this header to enter AP setup mode and validate stored credentials
+ * - flash_program.c persists the configuration block described here to reserved flash memory
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,
@@ -22,7 +34,7 @@
 //#define AP_PASSWD "my secret" // define, if you want a password
 #define MAGIC          0xCAFF      // used to check if the flash contains valid data
 #define LEGACY_MAGIC   0xCAFE     // previous config schema magic
-#define CONFIG_VERSION 1
+#define CONFIG_VERSION 3
 #define SETUP_GPIO     22          // pull this GPIO to GND to force the steup mode
 #define SETUP_DELAY    3           // duration for wich SETUP_GPIO must be held low
 

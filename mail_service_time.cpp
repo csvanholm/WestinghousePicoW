@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service_time.cpp
+ * @brief Time acquisition, NTP synchronization, and RTC/epoch conversion helpers.
+ *
+ * Purpose:
+ * - synchronizes the Pico clock with NTP when the network is available
+ * - converts between UTC, RTC, and local time representations
+ * - updates queued status messages with valid timestamps once time is known
+ *
+ * Relationships:
+ * - mail_service.cpp and mail_service_delivery.cpp depend on this timing logic for delayed retries and timestamped status emails
+ * - mail_service_queue.cpp refreshes queued status text using the time helpers after NTP sync succeeds
+ * - main.cpp uses the resulting synchronized time to make generator-related notifications meaningful and traceable
+ */
 
 #include "mail_service_internal.h"
 

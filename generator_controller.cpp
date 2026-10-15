@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file generator_controller.cpp
+ * @brief Implements generator state detection, GPIO handling, and event publishing.
+ *
+ * Purpose:
+ * - configures the start/stop relay and status LEDs
+ * - monitors generator and utility-power inputs
+ * - translates hardware state changes into GeneratorEvent messages for the rest of the firmware
+ *
+ * Relationships:
+ * - main.cpp owns and updates the Generator object created from generator_controller.h
+ * - mail_service.cpp and related modules can subscribe to events emitted by Generator::PublishEvent
+ * - the event sink mechanism allows status updates to be queued without tightly coupling the controller to SMTP logic
+ */
 
 #include "generator_controller.h"
 
@@ -246,7 +260,7 @@ void Generator::ReadInputs()
       m_generatorPowerStable = 0; // test this case CS
     } else
     {
-      ++m_generatorPowerStable;
+      m_generatorPowerStable++;
     }
   } else
   {
@@ -282,7 +296,7 @@ void Generator::ReadInputs()
       m_genPowerRequestedStable = 0; 
     } else
     {
-      ++m_genPowerRequestedStable;
+      m_genPowerRequestedStable++;
     }
   } else
   {
@@ -292,7 +306,7 @@ void Generator::ReadInputs()
 
 void Generator::RunOneTick()
 {
-  ++m_ticksSinceStart;
+  m_ticksSinceStart++;
   if (m_failedStartRetryCounter > kMaxStartAttempts)
   {
     BlinkFailure();
@@ -317,7 +331,7 @@ void Generator::RunOneTick()
       m_coolDownCounter = 0;
     } else
     {
-      ++m_coolDownCounter;
+      m_coolDownCounter++;
       if (m_coolDownCounter >= kCooldownTicks)
       {
         PulseStopButton();
@@ -333,10 +347,10 @@ void Generator::RunOneTick()
     if (m_startCounter == 0)
     {
       PulseStartButton();
-      ++m_failedStartRetryCounter;
+      m_failedStartRetryCounter++;
     }
 
-    ++m_startCounter;
+    m_startCounter++;
     if ((m_startCounter > kTimeTicksBetweenRestartAttempts) &&
         (m_failedStartRetryCounter <= kMaxStartAttempts))
     {
@@ -344,7 +358,7 @@ void Generator::RunOneTick()
       {
         printf("Failed to start generator after 2 attempts, entering failure mode\n");
         PublishEvent(GeneratorEvent::StartFailure);
-        ++m_failedStartRetryCounter;
+        m_failedStartRetryCounter++;
       } else
       {
         m_startCounter = 0;

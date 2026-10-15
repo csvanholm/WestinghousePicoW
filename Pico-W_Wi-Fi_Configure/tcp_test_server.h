@@ -1,4 +1,16 @@
 /**
+ * @file tcp_test_server.h
+ * @brief Public interface for the simple TCP validation server used during setup and network tests.
+ *
+ * Purpose:
+ * - declares the TCP server state used to verify the Pico network path in setup mode
+ * - provides a small reusable server interface for validating client connections during provisioning
+ *
+ * Relationships:
+ * - tcp_test_server.c implements the socket handling behind this interface
+ * - the setup flow can call this server to exercise the network stack before final Wi-Fi or SMTP configuration is accepted
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software makes it unnecessary to know the network name, password

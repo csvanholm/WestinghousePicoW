@@ -1,4 +1,16 @@
 /**
+ * @file tcp_test_server.c
+ * @brief Simple TCP test server used to validate the Wi-Fi configuration environment.
+ *
+ * Purpose:
+ * - opens a minimal TCP listener for setup-time validation and debugging
+ * - manages accepted client traffic while the Pico is in configuration mode
+ *
+ * Relationships:
+ * - tcp_test_server.h declares the public interface and state structure used by this implementation
+ * - the setup flow calls this server in the configuration path to check that networking is operational before finalizing settings
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,

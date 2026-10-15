@@ -1,3 +1,15 @@
+/**
+ * @file lwipopts_common.h
+ * @brief Shared lwIP configuration defaults used by Pico Wi-Fi builds.
+ *
+ * Purpose:
+ * - contains the base lwIP memory, TCP, DHCP, DNS, and netif settings shared across the project
+ * - provides the common network defaults that the project-specific lwIP configuration builds on
+ *
+ * Relationships:
+ * - lwipopts.h includes this file to apply the base settings for the runtime mail and setup logic
+ * - the Wi-Fi and SMTP code paths depend on these options for DHCP, DNS, and TCP networking behavior
+ */
 #ifndef _LWIPOPTS_COMMONH_H
 #define _LWIPOPTS_COMMONH_H
 // Common settings used in most of the pico_w examples

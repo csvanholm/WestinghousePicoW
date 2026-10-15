@@ -1,4 +1,17 @@
 /**
+ * @file http_server.c
+ * @brief Embedded web UI for configuring the Pico’s Wi-Fi and SMTP settings.
+ *
+ * Purpose:
+ * - serves the local setup page used to enter network and mail credentials
+ * - handles SSI/CGI values so the page shows live runtime information and accepts user input
+ *
+ * Relationships:
+ * - http_server.h declares the callback interfaces used by the lwIP HTTP server
+ * - access_point.c starts this server in AP mode to collect and persist configuration data
+ * - firmware_version.h supplies the firmware version shown in the setup page
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,

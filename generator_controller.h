@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file generator_controller.h
+ * @brief Public interface for the generator-control logic and event model.
+ *
+ * Purpose:
+ * - defines the generator state machine and event payloads used by the controller
+ * - provides the callback-based event sink pattern for application-level handling
+ * - exposes the generator monitor used by the main runtime loop
+ *
+ * Relationships:
+ * - main.cpp creates and updates the Generator object to monitor the generator and relay status
+ * - mail_service.h consumes the resulting generator events to notify users when state changes occur
+ * - generator_controller.cpp implements the hardware GPIO logic behind this interface
+ */
 
 #pragma once
 
@@ -86,20 +100,19 @@ private:
   static constexpr uint kCooldownTicks = 80;
 
   EventSinkFn m_eventSinkFn;
-  void *m_eventSinkContext;
+  void    *m_eventSinkContext;
   uint32_t m_droppedEvents = 0;
-
   uint64_t m_ticksSinceStart = 0;
-  bool m_generatorRunning = false;
-  bool m_genPowerRequested = false;
-  bool m_usesWeeklyExerciser = false;
-  bool m_forcedWeeklyRun = false;
-  bool m_startedByExerciser = false;
-  uint m_coolDownCounter = 0;
-  uint m_startCounter = 0;
-  uint m_failedStartRetryCounter = 0;
-  uint m_generatorPowerStable = 0;
-  uint m_genPowerRequestedStable = 0;
+  bool     m_generatorRunning = false;
+  bool     m_genPowerRequested = false;
+  bool     m_usesWeeklyExerciser = false;
+  bool     m_forcedWeeklyRun = false;
+  bool     m_startedByExerciser = false;
+  uint     m_coolDownCounter = 0;
+  uint     m_startCounter = 0;
+  uint     m_failedStartRetryCounter = 0;
+  uint     m_generatorPowerStable = 0;
+  uint     m_genPowerRequestedStable = 0;
 
   /**
    * @brief Drives the start relay for a fixed pulse width.

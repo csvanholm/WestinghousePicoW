@@ -1,4 +1,19 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service_delivery.cpp
+ * @brief SMTP delivery engine and queued-message flush logic.
+ *
+ * Purpose:
+ * - sends queued email payloads to the configured SMTP server
+ * - monitors DNS preflight, TLS setup, and busy/error conditions during send attempts
+ * - advances the outbox state machine and handles retry/backoff behavior
+ *
+ * Relationships:
+ * - mail_service.cpp coordinates the overall mail workflow and calls into delivery routines
+ * - mail_service_queue.cpp provides the queued email records consumed by the flush/send path
+ * - mail_service_connect.cpp ensures the Wi-Fi link is ready before delivery proceeds
+ * - main.cpp indirectly relies on this file for generated-status notifications and alarm emails
+ */
 
 #include "mail_service_internal.h"
 

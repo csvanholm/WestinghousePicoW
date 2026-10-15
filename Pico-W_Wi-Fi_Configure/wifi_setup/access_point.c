@@ -1,4 +1,17 @@
 /**
+ * @file access_point.c
+ * @brief Setup-mode access-point and configuration workflow for the Wi-Fi bootstrap portal.
+ *
+ * Purpose:
+ * - creates and manages the AP used to accept Wi-Fi and SMTP settings from the user
+ * - validates setup state and coordinates the local configuration UI for runtime credential storage
+ *
+ * Relationships:
+ * - http_server.c renders the setup portal pages consumed by this configuration flow
+ * - flash_program.c stores the resulting credentials after the user saves the configuration
+ * - main.c invokes this path when the board boots in setup mode
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,

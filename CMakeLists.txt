@@ -1,20 +1,16 @@
 # == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
 if(WIN32)
     set(USERHOME $ENV{USERPROFILE})
-    file(TO_CMAKE_PATH "${USERHOME}" USERHOME)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.2.0)
-set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.2.0-a4)
+set(sdkVersion 2.3.1)
+set(toolchainVersion 15_2_Rel1)
+set(picotoolVersion 2.3.1)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS "${picoVscode}")
-    include("${picoVscode}")
+if (EXISTS ${picoVscode})
+    include(${picoVscode})
 endif()
-
-# ====================================================================================
-set(PICO_BOARD pico_w CACHE STRING "Board type")
 # ====================================================================================
 
 cmake_minimum_required(VERSION 3.13)
@@ -66,8 +62,11 @@ if(PICO_BOARD MATCHES "pico_w|pico2_w")
     set(_PICO_W TRUE)
     message(STATUS "Building for Pico W variant: ${PICO_BOARD}")
 else()
-    set(_PICO_W FALSE)
-    message(STATUS "Building for non-WiFi Pico: ${PICO_BOARD}")
+    message(FATAL_ERROR
+        "Unsupported PICO_BOARD='${PICO_BOARD}' for this project. "
+        "This firmware requires Wi-Fi and must target 'pico_w' or 'pico2_w'. "
+        "Use the matching configure task/preset that sets -DPICO_BOARD=pico_w or -DPICO_BOARD=pico2_w."
+    )
 endif()
 
 if(_PICO_W)

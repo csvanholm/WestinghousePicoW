@@ -1,4 +1,16 @@
 /**
+ * @file http_server.h
+ * @brief HTTP UI callback interface for the Wi-Fi configuration portal.
+ *
+ * Purpose:
+ * - declares the SSI and CGI hooks used to render and process the web-based setup pages
+ * - exposes the string encoding and parameter handling logic for the setup interface
+ *
+ * Relationships:
+ * - http_server.c implements the HTML page logic and dynamic values shown by the portal
+ * - access_point.c and main.c activate the server during configuration mode so users can save Wi-Fi and SMTP settings
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,

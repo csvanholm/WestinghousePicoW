@@ -1,3 +1,15 @@
+/**
+ * @file dhcp_server.h
+ * @brief DHCP server interface for the setup access point.
+ *
+ * Purpose:
+ * - declares the minimal DHCP lease state and server API used while the device is in AP mode
+ * - allows the configuration portal to assign addresses in the local setup network
+ *
+ * Relationships:
+ * - dhcp_server.c implements this server behavior used by the AP-mode network bootstrap
+ * - access_point.c integrates this DHCP service into the configuration portal flow
+ */
 /*
  * This file is part of the MicroPython project, http://micropython.org/
  *

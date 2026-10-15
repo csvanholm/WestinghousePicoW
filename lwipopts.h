@@ -1,3 +1,15 @@
+/**
+ * @file lwipopts.h
+ * @brief Project-specific lwIP configuration for SMTP, DNS, NTP, and the setup portal.
+ *
+ * Purpose:
+ * - enables the lwIP features required by Wi-Fi, SMTP delivery, SNTP time sync, and the local web setup server
+ * - tunes memory and socket behavior for the Pico W / Pico 2 W controller workload
+ *
+ * Relationships:
+ * - mail_service.cpp and related networking code rely on these settings for DNS, TCP, and TLS behavior
+ * - the Pico-W_Wi-Fi_Configure example uses the same lwIP stack assumptions for the local setup page and device provisioning flow
+ */
 // Create a file named lwipopts.h in your source folder
 #include "lwipopts_common.h"
 #include <stdint.h>

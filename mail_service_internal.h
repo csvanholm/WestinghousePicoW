@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service_internal.h
+ * @brief Internal implementation contract for the mail subsystem.
+ *
+ * Purpose:
+ * - declares the internal PicoMail state machine, outbox, DNS state, and connection helpers
+ * - groups the implementation-only symbols used by the mail_service*.cpp files
+ * - centralizes shared constants and helper APIs required by the SMTP and Wi-Fi code paths
+ *
+ * Relationships:
+ * - mail_service.cpp, mail_service_connect.cpp, mail_service_delivery.cpp, mail_service_queue.cpp, and mail_service_time.cpp all include this header
+ * - mail_service.h exposes the external, public-facing API for the same subsystem
+ * - main.cpp depends on the runtime behavior provided by this internals view without directly coupling to the implementation details
+ */
 
 #pragma once
 

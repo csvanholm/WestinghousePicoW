@@ -1,4 +1,16 @@
 /**
+ * @file main.c
+ * @brief Entry point for the Wi-Fi configuration portal used during device setup.
+ *
+ * Purpose:
+ * - boots the Pico into either setup mode or run mode depending on stored configuration and GPIO state
+ * - initializes the access point, config page, and flash-backed Wi-Fi/SMTP settings workflow
+ *
+ * Relationships:
+ * - access_point.c and http_server.c handle the actual AP-mode setup and configuration UI
+ * - flash_program.c persists the credentials to device flash so the main firmware can load them later
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,

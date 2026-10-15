@@ -1,3 +1,15 @@
+/**
+ * @file lwipopts_examples_common.h
+ * @brief Compatibility lwIP defaults mirroring the Pico examples configuration.
+ *
+ * Purpose:
+ * - keeps the project aligned with Pico example network settings when a standard example profile is needed
+ * - provides a baseline for lwIP behavior when the application-specific config is layered on top
+ *
+ * Relationships:
+ * - lwipopts.h and the setup example build on this pattern to configure network stacks consistently
+ * - this file supports the same lwIP behavior expected by the Pico Wi-Fi examples and the project runtime
+ */
 #ifndef _LWIPOPTS_EXAMPLE_COMMONH_H
 #define _LWIPOPTS_EXAMPLE_COMMONH_H
 // Common settings used in most of the pico_w examples

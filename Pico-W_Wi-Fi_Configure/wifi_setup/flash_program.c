@@ -1,4 +1,16 @@
 /**
+ * @file flash_program.c
+ * @brief Flash-backed persistence layer for runtime Wi-Fi and SMTP settings.
+ *
+ * Purpose:
+ * - erases and writes the reserved configuration page in device flash
+ * - reads stored setup credentials back into the runtime configuration path
+ *
+ * Relationships:
+ * - access_point.h defines the on-disk credential layout consumed by this implementation
+ * - main.c and access_point.c call into this logic to save or reload the configuration state
+ */
+/**
  * This file is part of "Wi-Fi Configure.
  *
  * This software eliminates the need to know the network name, password and,

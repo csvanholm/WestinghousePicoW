@@ -1,4 +1,20 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service.cpp
+ * @brief Core SMTP, DNS, and connection-management implementation for PicoMail.
+ *
+ * Purpose:
+ * - owns the mail system state machine for Wi-Fi connectivity and SMTP delivery
+ * - resolves DNS and validates network settings before sending queued emails
+ * - manages retry/backoff logic and tracks queued email state for delivery attempts
+ *
+ * Relationships:
+ * - main.cpp initializes and periodically drives the mail service through mail_service.h
+ * - mail_service_connect.cpp handles Wi-Fi join and connection setup
+ * - mail_service_delivery.cpp performs SMTP send logic and outbox flush sequencing
+ * - mail_service_queue.cpp stores queued emails and timestamps used during retries
+ * - mail_service_time.cpp provides time/NTP synchronization used to stamp status emails
+ */
 
 #include "lwip/dns.h"
 

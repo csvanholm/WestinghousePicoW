@@ -1,3 +1,15 @@
+/**
+ * @file lwipopts.h
+ * @brief lwIP configuration for the standalone Wi-Fi configuration example.
+ *
+ * Purpose:
+ * - enables the network stack settings required by the built-in AP setup portal and local config server
+ * - supports the example’s HTTP, DHCP, and Wi-Fi setup flow on the Pico W board
+ *
+ * Relationships:
+ * - access_point.c and http_server.c depend on the setup network stack defined here
+ * - the project’s main firmware uses the same underlying lwIP concepts, but this file is scoped to the config example
+ */
 #pragma once
 
 // apparently needed...

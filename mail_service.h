@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file mail_service.h
+ * @brief Public API for the PicoMail Wi-Fi and SMTP subsystem.
+ *
+ * Purpose:
+ * - configures Wi-Fi credentials and SMTP recipients for runtime operation
+ * - provides queueing and sending APIs for status and alert emails
+ * - exposes the connection and mail-delivery state used by the application runtime
+ *
+ * Relationships:
+ * - main.cpp owns the PicoMail instance and drives the service during system startup and operation
+ * - generator_controller.h emits events that are turned into notifications by this mail layer
+ * - mail_service_internal.h contains the internal implementation details used by the .cpp modules
+ */
 
 #pragma once
 

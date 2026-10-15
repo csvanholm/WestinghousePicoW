@@ -1,3 +1,15 @@
+/**
+ * @file FreeRTOSConfig.h
+ * @brief FreeRTOS kernel configuration for the Pico RTOS runtime.
+ *
+ * Purpose:
+ * - defines task priorities, heap sizing, timers, and scheduler behavior for the firmware
+ * - provides the scheduling contract used by main.cpp and the generator/mail runtime tasks
+ *
+ * Relationships:
+ * - main.cpp creates the application tasks that rely on these priorities and stack settings
+ * - the mail service and generator controller use the scheduler state and task delay APIs defined by this configuration
+ */
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 

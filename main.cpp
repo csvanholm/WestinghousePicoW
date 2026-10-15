@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: MIT
+/**
+ * @file main.cpp
+ * @brief Top-level firmware entry point and runtime orchestration.
+ *
+ * Purpose:
+ * - initializes the Pico hardware and RTOS task layout
+ * - creates and owns the generator-control and mail-service runtime objects
+ * - coordinates watchdog, health-monitoring, event routing, and system startup
+ *
+ * Relationships:
+ * - main.cpp uses generator_controller.h to drive the generator logic
+ * - main.cpp uses mail_service.h to queue and transmit SMTP notifications
+ * - runtime tasks in this file convert generator events into queue messages for the mail subsystem
+ */
 #include "hardware/watchdog.h"
 #include "mail_service.h"
 #include "generator_controller.h"
@@ -859,7 +873,6 @@ int main()
   }
 
   log_runtime_task_affinity();
-
   printf("[RTOS] Tasks created, starting scheduler...\n");
   vTaskStartScheduler();
   printf("Scheduler exited unexpectedly.\n");
