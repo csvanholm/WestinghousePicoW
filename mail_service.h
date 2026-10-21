@@ -127,6 +127,9 @@ class PicoMail
   static bool m_outboxLockInitialized;
   static uint32_t m_sendTimeoutMs;
 
+  uint32_t m_powerFailureMs = 0;
+  bool m_powerFailureActive = false;
+
   FlushState m_flushState = FlushState::Idle;
   uint32_t m_flushStateStartMs = 0;
   uint32_t m_retryDelayMs = kBusyRetryDelayMs;

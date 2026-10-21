@@ -88,12 +88,33 @@ bool PicoMail::EnQueueGeneratorStatus(GeneratorEvent statusCode, uint32_t eventT
     printf("NIST Synced Time [%s %s]\n", time, date);
   }
 
+  // Placed before the "Time:" line so RefreshQueuedStatusTimestamp() preserves it.
+  char outage[48] = "";
+  if (statusCode == GeneratorEvent::PowerFailure)
+  {
+    m_powerFailureMs = eventTimestampMs;
+    m_powerFailureActive = true;
+  } else 
+  if ((statusCode == GeneratorEvent::PowerRestored) && m_powerFailureActive)
+  {
+    const uint32_t secs = (eventTimestampMs - m_powerFailureMs) / 1000;  // wrap-safe
+    const unsigned long days = secs / 86400;
+    int n = snprintf(outage, sizeof(outage), "Outage duration: ");
+    if (days > 0)
+    {
+      n += snprintf(outage + n, sizeof(outage) - n, "%lud ", days);
+    }
+    snprintf(outage + n, sizeof(outage) - n, "%luh %02lum %02lus\n",
+             (unsigned long)((secs / 3600) % 24), (unsigned long)((secs / 60) % 60), (unsigned long)(secs % 60));
+    m_powerFailureActive = false;
+  }
+
   switch (statusCode)
   {
     case GeneratorEvent::ControllerOnline:    snprintf(msg, sizeof(msg), "Controller is online\nTime: %s\nDate: %s\n", time, date); break;
     case GeneratorEvent::PowerFailure:        snprintf(msg, sizeof(msg), "Power failure detected\nTime: %s\nDate: %s\n", time, date); break;
     case GeneratorEvent::Running:             snprintf(msg, sizeof(msg), "Generator is running\nTime: %s\nDate: %s\n", time, date); break;
-    case GeneratorEvent::PowerRestored:       snprintf(msg, sizeof(msg), "Utility power restored\nTime: %s\nDate: %s\n", time, date); break;
+    case GeneratorEvent::PowerRestored:       snprintf(msg, sizeof(msg), "Utility power restored\n%sTime: %s\nDate: %s\n", outage, time, date); break;
     case GeneratorEvent::WeeklyExerciseEnd:   snprintf(msg, sizeof(msg), "Weekly exerciser ended\nTime: %s\nDate: %s\n", time, date); break;
     case GeneratorEvent::WeeklyExerciseStart: snprintf(msg, sizeof(msg), "Weekly exerciser started\nTime: %s\nDate: %s\n", time, date); break;
     case GeneratorEvent::StartFailure:        snprintf(msg, sizeof(msg), "Generator failed to start\nPlease check generator and power cycle the controller\nTime: %s\nDate: %s\n", time, date); break;

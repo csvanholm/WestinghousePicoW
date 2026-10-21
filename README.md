@@ -13,7 +13,7 @@ The controller was designed with the following features.
    sending a start pulse, this is necessary because the generator controller does not
    accept commands right after power-up.
 
-2) The Controller will try to start the generator up to 3 times if it fails after that the       controller will
+2) The Controller will try to start the generator up to 2 times if it fails after that the       controller will
    "lockup" and blink all LEDs this is done to prevent draining the battery with infinite   restart attempts. 
    if the generator runs out of gas or fails for some other mechanical reason (such as forgetting to open the gas spigot) 
    (Lockup is reset by turning the power off and on again)

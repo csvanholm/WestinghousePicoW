@@ -4,6 +4,9 @@
 build/
 build-debug/
 build-rp2350/
+build-rp2350-debug/
+build-rp2350-riscv/
+build-*/
 cmake-build-*/
 CMakeFiles/
 CMakeCache.txt

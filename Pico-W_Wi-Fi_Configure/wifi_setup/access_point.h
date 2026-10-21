@@ -31,11 +31,11 @@
  * define's you may change to suit your needs...
  */
 #define AP_SSID     "WESTINGHOUSE_CONFIG"
-//#define AP_PASSWD "my secret" // define, if you want a password
+//#define AP_PASSWD "my secret"     // define, if you want a password
 #define MAGIC          0xCAFF      // used to check if the flash contains valid data
-#define LEGACY_MAGIC   0xCAFE     // previous config schema magic
-#define CONFIG_VERSION 3
-#define SETUP_GPIO     22          // pull this GPIO to GND to force the steup mode
+#define LEGACY_MAGIC   0xCAFE      // previous config schema magic
+#define CONFIG_VERSION 3           
+#define SETUP_GPIO     22          // pull this GPIO to GND to force the web setup mode
 #define SETUP_DELAY    3           // duration for wich SETUP_GPIO must be held low
 
 #define DEBUG   // Uncomment for debug output

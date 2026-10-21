@@ -13,6 +13,7 @@
  * - main.cpp uses mail_service.h to queue and transmit SMTP notifications
  * - runtime tasks in this file convert generator events into queue messages for the mail subsystem
  */
+#include "firmware_version.h"
 #include "hardware/watchdog.h"
 #include "mail_service.h"
 #include "generator_controller.h"
@@ -455,7 +456,7 @@ static void handle_serial_command(int ch, PicoMail *mail)
     case 'h':
     case 'H':
     case '?':
-      printf("[CMD] Commands: s=status, n=NTP sync, r=reboot, h=help\n");
+      printf("[CMD] Commands: s=status, n=NTP sync, r=reboot, v=firmware version, h=help\n");
       break;
    
     case 'r':
@@ -464,6 +465,10 @@ static void handle_serial_command(int ch, PicoMail *mail)
        watchdog_reboot(0, 0, 0);
       break;
    
+   case 'V':
+   case 'v':
+      printf("[CMD] Firmware version: %s\n", APP_FIRMWARE_VERSION);
+      break;
         
     default:
       break;
@@ -554,8 +559,8 @@ static void watchdog_task(void *param)
   g_watchdogArmed.store(true);
     printf("[WDT] Armed after generator/mail heartbeats (timeout=%lu ms, generator=%lu ms, mail=%lu ms).\n",
          (unsigned long)kWatchdogHardwareTimeoutMs,
-      (unsigned long)kGeneratorHeartbeatTimeoutMs,
-      (unsigned long)kMailHeartbeatTimeoutMs);
+         (unsigned long)kGeneratorHeartbeatTimeoutMs,
+         (unsigned long)kMailHeartbeatTimeoutMs);
 
   while (true)
   {
@@ -733,7 +738,7 @@ static void mail_task(void *param)
 static void console_task(void *param)
 {
   PicoMail *mail = static_cast<PicoMail *>(param);
-  printf("[CMD] Commands: s=status, n=NTP sync, r=reboot, h=help\n");
+  printf("[CMD] Commands: s=status, n=NTP sync, r=reboot, v=firmware version, h=help\n");
 
   while (true)
   {
