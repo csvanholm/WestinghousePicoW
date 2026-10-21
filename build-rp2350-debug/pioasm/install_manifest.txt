@@ -1,5 +1,0 @@
-C:/Projects/RP2040/WestinghousePicoW/build-rp2350-debug/pioasm-install/pioasm/pioasm.exe
-C:/Projects/RP2040/WestinghousePicoW/build-rp2350-debug/pioasm-install/pioasm/pioasmTargets.cmake
-C:/Projects/RP2040/WestinghousePicoW/build-rp2350-debug/pioasm-install/pioasm/pioasmTargets-debug.cmake
-C:/Projects/RP2040/WestinghousePicoW/build-rp2350-debug/pioasm-install/pioasm/pioasmConfig.cmake
-C:/Projects/RP2040/WestinghousePicoW/build-rp2350-debug/pioasm-install/pioasm/pioasmConfigVersion.cmake
