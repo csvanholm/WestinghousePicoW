@@ -467,7 +467,7 @@ static void handle_serial_command(int ch, PicoMail *mail)
    
    case 'V':
    case 'v':
-      printf("[CMD] Firmware version: %s\n", APP_FIRMWARE_VERSION);
+      printf("[CMD] Firmware version: %s (built %s %s)\n", APP_FIRMWARE_VERSION, __DATE__, __TIME__);
       break;
         
     default:
@@ -557,7 +557,7 @@ static void watchdog_task(void *param)
 
   watchdog_enable(kWatchdogHardwareTimeoutMs, true);
   g_watchdogArmed.store(true);
-    printf("[WDT] Armed after generator/mail heartbeats (timeout=%lu ms, generator=%lu ms, mail=%lu ms).\n",
+  printf("[WDT] Armed after generator/mail heartbeats (timeout=%lu ms, generator=%lu ms, mail=%lu ms).\n",
          (unsigned long)kWatchdogHardwareTimeoutMs,
          (unsigned long)kGeneratorHeartbeatTimeoutMs,
          (unsigned long)kMailHeartbeatTimeoutMs);
@@ -598,7 +598,6 @@ static void watchdog_task(void *param)
                (unsigned long)(nowMs - lastMailHeartbeatMs));
       }
     }
-
     vTaskDelay(pdMS_TO_TICKS(kWatchdogPollPeriodMs));
   }
 }
