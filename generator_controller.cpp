@@ -244,6 +244,13 @@ void Generator::ReadInputs()
   m_usesWeeklyExerciser = weeklyExerciserSelected;
 
   const bool generatorRunningNow = !gpio_get(GENERATOR_RUNNING);
+  
+  // dont delay clearing the running state if the generator is not running
+  if (!generatorRunningNow)
+  {
+    m_generatorRunning = false;
+    m_generatorPowerStable = 0;
+  } else
   if (generatorRunningNow != m_generatorRunning)
   {
     if (m_generatorPowerStable >= kGeneratorRunningDebounceTicks)

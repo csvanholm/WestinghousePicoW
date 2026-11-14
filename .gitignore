@@ -46,7 +46,7 @@ CMakeUserConfig.cmake
 # -----------------------------
 # IDE and OS files
 # -----------------------------
-.vscode/
+.vscode/*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/settings.json

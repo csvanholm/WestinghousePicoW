@@ -47,9 +47,9 @@ RP2040/RP2350 Pico-W or Pico2-W firmware project with SMTP-related networking up
 ## Prerequisites
 
 - VS Code with the Raspberry Pi Pico extension
-- import it as a Raspberry Pi Pico project and select your target board
+- use the checked-in CMake presets to select the board and build type
 - the Pico extension should install or assign the required toolchain components if they are not already present on the machine
-- `cmake plugin` is recomended to select build type debug,release compiler ect.
+- VS Code CMake Tools is required for preset selection and IntelliSense
 - `ninja` available via the Pico toolchain path
 - `perl` must be installed in order to rebuild the html content
 -  can be downloaded here  https://strawberryperl.com/
@@ -77,7 +77,7 @@ Credentials are stored in device flash and are no longer configured via CMake.
 Based on current workspace task configuration:
 
 - Ninja: `1.12.1`
-- Picotool: `2.2.0-a4`
+- Picotool: `2.3.1`
 - OpenOCD: `0.12.0+dev`
 
 Windows task paths resolve under `%USERPROFILE%\.pico-sdk\...`.
@@ -86,15 +86,22 @@ Windows task paths resolve under `%USERPROFILE%\.pico-sdk\...`.
 
 Use the built-in tasks in this workspace:
 
-1. `Compile Project` builds the RP2040 Pico W binary from `build/`
-2. `Run Project` loads the active launch target with `picotool`
-3. `Configure Project (RP2040 Preset)` configures `build/`
-4. `Configure Project (RP2350 Preset)` configures `build-rp2350/`
-5. `Compile Project (RP2350)` builds the Pico 2 W binary from `build-rp2350/`
-6. `Run Project (RP2350)` loads `build-rp2350/westinghouse_wifi_rtos.uf2`
-7. `Flash` runs the OpenOCD-based programming flow
+1. `Compile Project (RP2350)` builds Pico 2 W Release; it is the default task (`Ctrl+Shift+B`).
+2. `Compile Project` builds Pico W Release.
+3. `Compile Project (RP2040 Debug)` and `Compile Project (RP2350 Debug)` build Debug firmware.
+4. `Run Project` and `Run Project (RP2350)` build and load their matching Release UF2 with picotool.
+5. `Flash` and `Flash (RP2350)` build and program their matching Release firmware using an SWD probe.
 
-The Pico extension's generated [CMakeLists.txt](/home/pi/pico/dummy/WestinghousePicoW/CMakeLists.txt) currently defaults `PICO_BOARD` to `pico2_w`, so presets or the explicit configure tasks are the safest way to select the target build directory you want.
+Every compile task configures its matching preset first. Switch tasks without
+deleting build folders or changing the board in CMake files.
+For the CMake Tools UI and IntelliSense, use `CMake: Select Configure Preset`.
+Do not reimport the project just to switch boards.
+
+For debugging, select `Pico 2 W RP2350 Release`, `Pico 2 W RP2350 Debug`,
+`Pico W RP2040 Release` or `Pico W RP2040 Debug` in Run and Debug, then press F5.
+Each profile builds and loads its own explicit firmware using OpenOCD.
+Release optimization can limit source stepping; use Debug for normal debugging.
+See [Developer Build](DEVELOPER_BUILD.md) for setup and probe requirements.
 
 ## CMake Presets
 
@@ -128,8 +135,10 @@ powershell -ExecutionPolicy Bypass -File ./scripts/bootstrap.ps1
 This performs:
 
 1. Recursive submodule init/update
-2. RP2040 configure in `build/`
-3. RP2350 configure in `build-rp2350/`
+2. RP2040 Debug configure in `build-debug/`
+3. RP2350 Debug configure in `build-rp2350-debug/`
+
+Pass `-BuildType Release` to configure `build/` and `build-rp2350/` instead.
 
 It does not require Wi-Fi or SMTP credentials up front. Those are provisioned later through the setup portal and stored in device flash.
 

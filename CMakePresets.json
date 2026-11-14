@@ -23,7 +23,8 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "PICO_BOARD": "pico_w"
+        "PICO_BOARD": "pico_w",
+        "PICO_PLATFORM": "rp2040"
       }
     },
     {
@@ -34,7 +35,8 @@
       "binaryDir": "${sourceDir}/build-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "PICO_BOARD": "pico_w"
+        "PICO_BOARD": "pico_w",
+        "PICO_PLATFORM": "rp2040"
       }
     },
     {
@@ -45,7 +47,8 @@
       "binaryDir": "${sourceDir}/build-rp2350",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "PICO_BOARD": "pico2_w"
+        "PICO_BOARD": "pico2_w",
+        "PICO_PLATFORM": "rp2350-arm-s"
       }
     },
     {
@@ -56,7 +59,8 @@
       "binaryDir": "${sourceDir}/build-rp2350-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "PICO_BOARD": "pico2_w"
+        "PICO_BOARD": "pico2_w",
+        "PICO_PLATFORM": "rp2350-arm-s"
       }
     }
   ],

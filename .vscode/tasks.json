@@ -1,0 +1,146 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure Project (RP2040 Preset)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--preset", "rp2040-release"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Configure Project (RP2040 Debug Preset)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--preset", "rp2040-debug"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Configure Project (RP2350 Preset)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--preset", "rp2350-release"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Configure Project (RP2350 Debug Preset)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--preset", "rp2350-debug"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Compile Project",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--build", "--preset", "build-rp2040-release"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "dependsOn": "Configure Project (RP2040 Preset)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Compile Project (RP2040 Debug)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--build", "--preset", "build-rp2040-debug"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "dependsOn": "Configure Project (RP2040 Debug Preset)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Compile Project (RP2350)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--build", "--preset", "build-rp2350-release"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "dependsOn": "Configure Project (RP2350 Preset)",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Compile Project (RP2350 Debug)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
+            "args": ["--build", "--preset", "build-rp2350-debug"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "dependsOn": "Configure Project (RP2350 Debug Preset)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Run Project",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\picotool\\2.3.1\\picotool\\picotool.exe",
+            "args": ["load", "${workspaceFolder}/build/westinghouse_wifi_rtos.uf2", "-fx"],
+            "dependsOn": "Compile Project",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Project (RP2350)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\picotool\\2.3.1\\picotool\\picotool.exe",
+            "args": ["load", "${workspaceFolder}/build-rp2350/westinghouse_wifi_rtos.uf2", "-fx"],
+            "dependsOn": "Compile Project (RP2350)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\openocd.exe",
+            "args": [
+                "-s", "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\scripts",
+                "-f", "interface/cmsis-dap.cfg",
+                "-f", "target/rp2040.cfg",
+                "-c", "adapter speed 500; program \"${workspaceFolder}/build/westinghouse_wifi_rtos.elf\" verify reset exit"
+            ],
+            "dependsOn": "Compile Project",
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash (RP2350)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\openocd.exe",
+            "args": [
+                "-s", "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\scripts",
+                "-f", "interface/cmsis-dap.cfg",
+                "-f", "target/rp2350.cfg",
+                "-c", "adapter speed 5000; targets rp2350.cm0; program \"${workspaceFolder}/build-rp2350/westinghouse_wifi_rtos.elf\" verify reset exit"
+            ],
+            "dependsOn": "Compile Project (RP2350)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Rescue Reset",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\openocd.exe",
+            "args": [
+                "-s", "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\scripts",
+                "-f", "interface/cmsis-dap.cfg",
+                "-f", "target/${command:raspberry-pi-pico.getChip}-rescue.cfg",
+                "-c", "adapter speed 5000; reset halt; exit"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "RISC-V Reset (RP2350)",
+            "type": "process",
+            "command": "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\openocd.exe",
+            "args": [
+                "-s", "${env:USERPROFILE}\\.pico-sdk\\openocd\\0.12.0+dev\\scripts",
+                "-c", "set USE_CORE { rv0 rv1 cm0 cm1 }",
+                "-f", "interface/cmsis-dap.cfg",
+                "-f", "target/rp2350.cfg",
+                "-c", "adapter speed 5000; init;",
+                "-c", "write_memory 0x40120158 8 { 0x3 }; echo [format \"Info : ARCHSEL 0x%02x\" [read_memory 0x40120158 8 1]];",
+                "-c", "reset halt; targets rp2350.rv0; echo [format \"Info : ARCHSEL_STATUS 0x%02x\" [read_memory 0x4012015C 8 1]]; exit"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

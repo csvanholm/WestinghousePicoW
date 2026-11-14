@@ -1,4 +1,4 @@
-/**
+/**build updates for the firmware version
  * @file firmware_version.h
  * @brief Centralized firmware version definition for UI, status output, and diagnostics.
  *
@@ -13,6 +13,6 @@
 #ifndef FIRMWARE_VERSION_H
 #define FIRMWARE_VERSION_H
 
-#define APP_FIRMWARE_VERSION "1.0.12"
+#define APP_FIRMWARE_VERSION "1.1.0"
 
 #endif // FIRMWARE_VERSION_H

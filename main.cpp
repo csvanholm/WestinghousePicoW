@@ -254,7 +254,7 @@ static BaseType_t create_runtime_task(TaskFunction_t taskFunction,
 #endif
 }
 
-static void log_runtime_task_affinity()
+static void  log_runtime_task_affinity()
 {
 #if PICO_RP2350 && ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
   printf("[RTOS] RP2350 mail/watchdog/console pinned to core 0; generator pinned to core 1.\n");

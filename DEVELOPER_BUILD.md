@@ -26,11 +26,20 @@ Important:
 
 After setup, use normal VS Code tasks:
 
-- `Compile Project` for the RP2040 `build/` tree
-- `Configure Project (RP2040 Preset)` and `Configure Project (RP2350 Preset)` to create the target-specific build folders
-- `Compile Project (RP2350)` for the RP2350 `build-rp2350/` tree
-- `Run Project` or `Run Project (RP2350)` to load the matching UF2
-- `Flash` for the OpenOCD flow
+- `Compile Project (RP2350)` is the default build task (`Ctrl+Shift+B`), for Pico 2 W Release.
+- `Compile Project` builds Pico W Release.
+- `Compile Project (RP2040 Debug)` and `Compile Project (RP2350 Debug)` build the corresponding Debug firmware.
+- Every compile task configures its matching preset before building. No manual cache deletion or board editing is needed when switching.
+- `Run Project` or `Run Project (RP2350)` builds and loads the matching Release UF2 with picotool. The board must be accessible to picotool (use BOOTSEL if necessary).
+- `Flash` or `Flash (RP2350)` builds and programs the matching Release firmware over a CMSIS-DAP SWD probe.
+
+For the CMake Tools UI, select one of the four configure presets with
+`CMake: Select Configure Preset`. IntelliSense follows that preset through
+the CMake Tools configuration provider. Fixed-name tasks and debug launches
+always use their named target, independently of the selected UI preset.
+Use CMake Tools rather than reimporting the project to change boards.
+The Pico extension's independent auto-configure is disabled to avoid competing
+build configurations.
 
 For side-by-side target builds from the same code base, use the repo presets:
 
@@ -46,7 +55,9 @@ This keeps RP2040 output in `build/` and RP2350 output in `build-rp2350/`.
 
 Wi-Fi and SMTP credentials are provisioned at runtime through the setup portal (AP mode), not through CMake build variables.
 
-The bootstrap script configures both build directories without requiring local credential files.
+The bootstrap script configures both Debug presets by default; use
+`-BuildType Release` to configure both Release presets. It does not require
+local credential files.
 
 `CMakeLists.txt` automatically prefers `third_party/pico-sdk` when present.
 
@@ -88,14 +99,27 @@ If you publish source releases, create the archive from a checked-out working tr
 
 ## 7) Debug launch notes (RP2040 and RP2350)
 
-The Cortex-Debug launch profiles in `.vscode/launch.json` are tuned for stable OpenOCD attach behavior:
+Select the matching profile in Run and Debug, then press F5:
 
-- RP2350 profile (`Pico Debug RP2350 (Cortex-M33)`):
+- `Pico 2 W RP2350 Release`
+- `Pico 2 W RP2350 Debug`
+- `Pico W RP2040 Release`
+- `Pico W RP2040 Debug`
+
+Each profile builds its own preset first and uses an explicit ELF, SVD and
+OpenOCD target, rather than the Pico extension's separately selected board.
+Release firmware is optimized, so stepping and inspecting variables can be
+limited. Use the corresponding Debug profile for normal source debugging.
+A CMSIS-DAP-compatible SWD probe and a powered, correctly wired target are required.
+
+The profiles in `.vscode/launch.json` are tuned for stable OpenOCD attach behavior:
+
+- RP2350 profiles:
    - `openOCDLaunchCommands` includes:
       - `adapter speed 5000`
       - `targets rp2350.cm0`
       - `rp2350.cm0 configure -event gdb-attach { reset init }`
-- RP2040 profile (`Pico Debug (Cortex-Debug)`):
+- RP2040 profiles:
    - `openOCDLaunchCommands` includes:
       - `adapter speed 500`
       - `rp2040.core0 configure -event gdb-attach { reset init }`
@@ -106,3 +130,10 @@ Why this matters:
 - RP2040 with CYW43 activity may require a lower SWD clock to avoid `Too long SWD WAIT` / multidrop connect failures.
 
 If RP2040 debug attach still fails intermittently, press RESET on the board immediately before launching the debug profile.
+
+Shared VS Code configuration is version-controlled. Tool paths currently target
+the Windows Pico extension installation: CMake 3.31.5, Ninja 1.12.1,
+ARM toolchain 15_2_Rel1, picotool 2.3.1 and OpenOCD 0.12.0+dev.
+Build and debugger tool paths use `${env:USERPROFILE}` with Windows separators.
+If a task reports a malformed path such as `\c:\Users\...`, verify it is using
+the checked-in configuration rather than a `${userHome}`-based tool path.
